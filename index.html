@@ -33,10 +33,9 @@ button.secondary:hover { background: #d4c9b0; }
 .tessera-punti { font-size: 2.5em; font-weight: 800; margin: 12px 0 4px; }
 .tessera-label { font-size: 0.85em; opacity: 0.9; }
 .punti-row { display: flex; gap: 8px; margin: 16px 0; flex-wrap: wrap; }
-.punto { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1em; border: 2px solid #ccc; background: #f0f0f0; color: #999; transition: all 0.3s; }
+.punto { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85em; border: 2px solid #ccc; background: #f0f0f0; color: #999; transition: all 0.3s; }
 .punto.pieno { background: #8B6914; border-color: #8B6914; color: white; }
 .punto.oro { background: #FFD700; border-color: #DAA520; color: #333; }
-.premio-label { font-size: 0.7em; font-weight: 700; }
 .storico { list-style: none; }
 .storico li { padding: 10px 0; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
 .storico li:last-child { border-bottom: none; }
@@ -47,7 +46,6 @@ button.secondary:hover { background: #d4c9b0; }
 .alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9em; }
 .alert-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #4caf50; }
 .alert-error { background: #ffebee; color: #c62828; border-left: 4px solid #ef5350; }
-.alert-info { background: #e3f2fd; color: #1565c0; border-left: 4px solid #2196f3; }
 table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
 th { text-align: left; padding: 10px 8px; border-bottom: 2px solid #e0e0e0; color: #888; font-weight: 600; }
 td { padding: 10px 8px; border-bottom: 1px solid #f5f5f5; }
@@ -68,14 +66,12 @@ tr:hover td { background: #fafafa; }
 <div class="container">
   <h1>SR Art - Tessera Fedelta</h1>
   <p class="subtitle">1 punto ogni 10 euro - Premio a 5 punti (tazza) - Premio a 10 punti (set 3 pezzi)</p>
-
   <div class="tabs" id="main-tabs">
     <div class="tab active" onclick="mostraTab('cliente')">La mia tessera</div>
     <div class="tab" onclick="richiestaAdmin()">Pannello Admin</div>
   </div>
-
   <div id="tab-cliente" class="panel active">
-    <div id="cliente-login" class="card">
+    <div class="card">
       <h3 style="margin-bottom:16px">Cerca la tua tessera</h3>
       <div class="search-row">
         <input type="email" id="cliente-email" placeholder="La tua email..." />
@@ -91,14 +87,12 @@ tr:hover td { background: #fafafa; }
       </div>
     </div>
   </div>
-
   <div id="tab-admin" class="panel hidden">
     <div class="tabs" id="sub-tabs">
       <div class="tab active" onclick="mostraSubTab('sub-aggiungi')">Aggiungi Punti</div>
       <div class="tab" onclick="mostraSubTab('sub-nuovo')">Nuovo Cliente</div>
       <div class="tab" onclick="mostraSubTab('sub-lista')">Elenco</div>
     </div>
-
     <div id="sub-aggiungi" class="panel active">
       <div class="card">
         <h3 style="margin-bottom:16px">Aggiungi punti post-acquisto</h3>
@@ -119,7 +113,6 @@ tr:hover td { background: #fafafa; }
         <div id="msg-admin-punti"></div>
       </div>
     </div>
-
     <div id="sub-nuovo" class="panel hidden">
       <div class="card">
         <h3 style="margin-bottom:16px">Registra nuovo cliente</h3>
@@ -131,7 +124,6 @@ tr:hover td { background: #fafafa; }
         <div id="msg-nuovo-cliente"></div>
       </div>
     </div>
-
     <div id="sub-lista" class="panel hidden">
       <div class="card">
         <div class="search-row" style="margin-bottom:12px">
@@ -143,7 +135,6 @@ tr:hover td { background: #fafafa; }
     </div>
   </div>
 </div>
-
 <div id="modal-premio" class="modal hidden">
   <div class="modal-box" style="text-align:center">
     <div style="font-size:3em;margin-bottom:8px">PREMIO</div>
@@ -152,7 +143,6 @@ tr:hover td { background: #fafafa; }
     <button onclick="document.getElementById('modal-premio').classList.add('hidden')">OK</button>
   </div>
 </div>
-
 <div id="overlay-admin" class="admin-pass hidden">
   <div class="admin-pass-box">
     <h3 style="margin-bottom:16px;color:#8B6914">Accesso Admin</h3>
@@ -164,34 +154,30 @@ tr:hover td { background: #fafafa; }
     <p id="msg-pwd" style="color:#c62828;margin-top:8px;font-size:0.9em"></p>
   </div>
 </div>
-
 <script>
-const SUPABASE_URL = window.ENV_SUPABASE_URL || 'PLACEHOLDER_URL';
-const SUPABASE_ANON = window.ENV_SUPABASE_ANON || 'PLACEHOLDER_ANON';
-const ADMIN_PASSWORD = window.ENV_ADMIN_PASSWORD || 'srart2024';
-const { createClient } = supabase;
-const db = createClient(SUPABASE_URL, SUPABASE_ANON);
-
-let clienteCorrente = null;
-let clienteAdminCorrente = null;
-let tuttiClienti = [];
-let adminAutenticato = false;
+var SUPABASE_URL = 'https://lixlgaxkjtjbtudjownk.supabase.co';
+var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpeGxnYXhranRqYnR1ZGpvd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MjQyNjIsImV4cCI6MjA5NzEwMDI2Mn0.o9P2VoMky3Khfz84XkPKPbds5adOWmNM_HRUiY8St-4';
+var ADMIN_PASSWORD = 'srart2024';
+var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+var clienteAdminCorrente = null;
+var tuttiClienti = [];
+var adminAutenticato = false;
 
 function mostraTab(id) {
-  const tabs = document.querySelectorAll('#main-tabs .tab');
+  var tabs = document.querySelectorAll('#main-tabs .tab');
   tabs[0].classList.toggle('active', id === 'cliente');
   tabs[1].classList.toggle('active', id === 'admin');
-  ['tab-cliente','tab-admin'].forEach(t => {
+  ['tab-cliente','tab-admin'].forEach(function(t) {
     document.getElementById(t).classList.toggle('active', 'tab-'+id === t);
     document.getElementById(t).classList.toggle('hidden', 'tab-'+id !== t);
   });
   if (id === 'admin') caricaClienti();
 }
 function mostraSubTab(id) {
-  const tabs = document.querySelectorAll('#sub-tabs .tab');
-  const ids = ['sub-aggiungi','sub-nuovo','sub-lista'];
-  tabs.forEach((t,i) => t.classList.toggle('active', ids[i] === id));
-  ids.forEach(s => {
+  var tabs = document.querySelectorAll('#sub-tabs .tab');
+  var ids = ['sub-aggiungi','sub-nuovo','sub-lista'];
+  tabs.forEach(function(t,i){ t.classList.toggle('active', ids[i] === id); });
+  ids.forEach(function(s){
     document.getElementById(s).classList.toggle('active', s === id);
     document.getElementById(s).classList.toggle('hidden', s !== id);
   });
@@ -202,7 +188,7 @@ function richiestaAdmin() {
   document.getElementById('overlay-admin').classList.remove('hidden');
 }
 function verificaAdmin() {
-  const pwd = document.getElementById('admin-pwd').value;
+  var pwd = document.getElementById('admin-pwd').value;
   if (pwd === ADMIN_PASSWORD) {
     adminAutenticato = true;
     document.getElementById('overlay-admin').classList.add('hidden');
@@ -213,11 +199,11 @@ function verificaAdmin() {
   }
 }
 function puntiHTML(punti) {
-  let h = '<div class="punti-row">';
-  for (let i = 1; i <= 10; i++) {
-    const pieno = i <= punti;
-    const isSpecial = i === 5 || i === 10;
-    const lbl = i === 5 ? 'tazza' : i === 10 ? 'set' : i;
+  var h = '<div class="punti-row">';
+  for (var i = 1; i <= 10; i++) {
+    var pieno = i <= punti;
+    var isSpecial = i === 5 || i === 10;
+    var lbl = i === 5 ? 'tazza' : i === 10 ? 'set' : i;
     h += '<div class="punto' + (pieno ? ' pieno' : '') + (isSpecial && pieno ? ' oro' : '') + '">' + lbl + '</div>';
   }
   return h + '</div>';
@@ -235,7 +221,6 @@ async function cercaCliente() {
   if (!email) return;
   var r = await db.from('clienti').select('*').eq('email', email).single();
   if (r.error || !r.data) { mostraMsg('msg-cliente', 'Nessuna tessera trovata.', 'error'); return; }
-  clienteCorrente = r.data;
   await mostraProfiloCliente(r.data);
 }
 async function mostraProfiloCliente(c) {
@@ -249,8 +234,7 @@ async function mostraProfiloCliente(c) {
     '<div class="tessera-id">Tessera: ' + c.tessera_id + '</div>' +
     '<div class="tessera-punti">' + c.punti + '</div>' +
     '<div class="tessera-label">punti - ancora ' + mancanti + ' per ' + (target === 5 ? 'la tazza' : 'il set') + '</div>' +
-    '</div>' +
-    puntiHTML(c.punti) +
+    '</div>' + puntiHTML(c.punti) +
     '<div class="info-grid" style="margin:16px 0">' +
     '<div class="info-box"><div class="valore">' + c.punti_totali + '</div><div class="etichetta">Punti totali guadagnati</div></div>' +
     '<div class="info-box"><div class="valore">' + (c.premi_riscattati||0) + '</div><div class="etichetta">Premi ricevuti</div></div>' +
@@ -323,10 +307,7 @@ async function creaCliente() {
   var r = await db.from('clienti').insert({ nome: nome, email: email, telefono: tel, note: note }).select().single();
   if (r.error) { mostraMsg('msg-nuovo-cliente', r.error.code === '23505' ? 'Email gia registrata!' : 'Errore: ' + r.error.message, 'error'); return; }
   mostraMsg('msg-nuovo-cliente', 'Tessera creata! ID: ' + r.data.tessera_id, 'success');
-  document.getElementById('nuovo-nome').value = '';
-  document.getElementById('nuovo-email').value = '';
-  document.getElementById('nuovo-tel').value = '';
-  document.getElementById('nuovo-note').value = '';
+  ['nuovo-nome','nuovo-email','nuovo-tel','nuovo-note'].forEach(function(id){ document.getElementById(id).value = ''; });
 }
 async function caricaClienti() {
   var r = await db.from('clienti').select('*').order('created_at', {ascending: false});
