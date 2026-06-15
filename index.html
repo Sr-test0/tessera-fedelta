@@ -455,8 +455,17 @@ function renderTabella(clienti) {
         '<td><span class="punti-badge">' + c.punti + '</span></td>' +
         '<td style="text-align:center">' + (c.premi_riscattati||0) + '</td>' +
         '<td>' + pwdLabel + '</td>' +
-        '<td><button class="secondary" style="padding:5px 10px;font-size:0.8em" onclick="apriResetPassword(' + "'" + c.id + "'" + ',decodeURIComponent(' + "'" + encodeURIComponent(c.nome) + "'" + '))">Reset pwd</button></td></tr>';
+        '<td style="display:flex;gap:6px"><button class="secondary" style="padding:5px 10px;font-size:0.8em" onclick="apriResetPassword(' + "'" + c.id + "'" + ',decodeURIComponent(' + "'" + encodeURIComponent(c.nome) + "'" + '))">Reset pwd</button>' +
+        '<button class="danger" style="padding:5px 10px;font-size:0.8em" onclick="confermaEliminaCliente(' + "'" + c.id + "'" + ',decodeURIComponent(' + "'" + encodeURIComponent(c.nome) + "'" + '))">Elimina</button></td></tr>';
     }).join('') + '</tbody></table>';
+}
+
+// ─── ADMIN: ELIMINA CLIENTE ───────────────────────────────
+async function confermaEliminaCliente(clienteId, nomeCliente) {
+  if (!confirm('Eliminare la tessera di ' + nomeCliente + '?\nVerranno cancellati anche tutti i movimenti. Questa azione è irreversibile.')) return;
+  var r = await db.from('clienti').delete().eq('id', clienteId);
+  if (r.error) { alert('Errore: ' + r.error.message); return; }
+  caricaClienti();
 }
 </script>
 </body>
