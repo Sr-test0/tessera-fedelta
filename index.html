@@ -12,7 +12,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
 h1 { color: #8B6914; text-align: center; margin-bottom: 8px; font-size: 1.8em; }
 .subtitle { text-align: center; color: #999; margin-bottom: 24px; font-size: 0.9em; }
 .tabs { display: flex; border-bottom: 2px solid #e0e0e0; margin-bottom: 24px; }
-.tab { padding: 10px 20px; cursor: pointer; border-bothtom: 2px solid transparent; margin-bottom: -2px; font-weight: 500; color: #888; transition: all 0.2s; }
+.tab { padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; font-weight: 500; color: #888; transition: all 0.2s; }
 .tab.active { color: #8B6914; border-bottom-color: #8B6914; }
 .panel { display: none; }
 .panel.active { display: block; }
@@ -25,6 +25,8 @@ button.secondary { background: #e8e0d0; color: #8B6914; }
 button.secondary:hover { background: #d4c9b0; }
 button.danger { background: #ffebee; color: #c62828; }
 button.danger:hover { background: #ef9a9a; }
+button.success { background: #e8f5e9; color: #2e7d32; }
+button.success:hover { background: #c8e6c9; }
 .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .search-row { display: flex; gap: 10px; }
 .search-row input { margin-bottom: 0; }
@@ -65,6 +67,13 @@ tr:hover td { background: #fafafa; }
 .info-box .etichetta { font-size: 0.78em; color: #999; margin-top: 2px; }
 .logout-bar { display: flex; justify-content: space-between; align-items: center; background: white; border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); font-size: 0.9em; color: #666; }
 .pass-temp-badge { display: inline-block; background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; border-radius: 6px; padding: 3px 10px; font-size: 0.8em; font-weight: 600; margin-left: 8px; }
+.clienti-risultati { margin-top: 8px; border: 1.5px solid #e0d0b0; border-radius: 8px; overflow: hidden; }
+.cliente-risultato-item { padding: 12px 14px; cursor: pointer; border-bottom: 1px solid #f0e8d8; background: white; transition: background 0.15s; }
+.cliente-risultato-item:last-child { border-bottom: none; }
+.cliente-risultato-item:hover { background: #faf5ec; }
+.cliente-risultato-item .nome { font-weight: 600; color: #333; }
+.cliente-risultato-item .email { font-size: 0.82em; color: #8B6914; margin-top: 2px; }
+.export-box { background: #faf8f5; border: 1.5px dashed #c9a227; border-radius: 10px; padding: 20px; text-align: center; margin-bottom: 16px; }
 </style>
 </head>
 <body>
@@ -95,105 +104,109 @@ tr:hover td { background: #fafafa; }
 </div>
 <h1>SR Art - Tessera Fedeltà</h1>
 <p class="subtitle">1 punto ogni 10 euro &mdash; Premio a 5 punti (tazza) &mdash; Premio a 10 punti (set 3 pezzi)</p>
-
 <div class="tabs" id="main-tabs" style="display:none"></div>
-
 <!-- TAB CLIENTE -->
 <div id="tab-cliente" class="panel active">
-
-  <!-- LOGIN FORM (mostrato se non autenticato) -->
-  <div id="cliente-login" class="card">
-    <h3 style="margin-bottom:6px">Accedi alla tua tessera</h3>
-    <p style="color:#999;font-size:0.88em;margin-bottom:16px">Inserisci email e password fornite alla registrazione</p>
-    <input type="email" id="login-email" placeholder="La tua email..." />
-    <input type="password" id="login-password" placeholder="Password..." onkeydown="if(event.key==='Enter')loginCliente()" />
-    <button onclick="loginCliente()" style="width:100%">Accedi</button>
-    <div id="msg-login"></div>
-  </div>
-
-  <!-- PROFILO (mostrato dopo login) -->
-  <div id="cliente-profilo" class="hidden">
-    <div class="logout-bar">
-      <span id="logout-nome"></span>
-      <button class="secondary" onclick="logoutCliente()" style="padding:6px 14px;font-size:0.85em">Esci</button>
-    </div>
-    <div id="tessera-display"></div>
-    <div class="card">
-      <h4 style="margin-bottom:12px">Storico movimenti</h4>
-      <ul class="storico" id="storico-lista"></ul>
-    </div>
-    <!-- CAMBIO PASSWORD -->
-    <div class="card">
-      <h4 style="margin-bottom:12px">Cambia password</h4>
-      <input type="password" id="nuova-pwd-1" placeholder="Nuova password..." />
-      <input type="password" id="nuova-pwd-2" placeholder="Ripeti nuova password..." />
-      <button onclick="cambiaPassword()" class="secondary">Aggiorna password</button>
-      <div id="msg-cambia-pwd"></div>
-    </div>
-  </div>
+<div id="cliente-login" class="card">
+<h3 style="margin-bottom:6px">Accedi alla tua tessera</h3>
+<p style="color:#999;font-size:0.88em;margin-bottom:16px">Inserisci email e password fornite alla registrazione</p>
+<input type="email" id="login-email" placeholder="La tua email..." />
+<input type="password" id="login-password" placeholder="Password..." onkeydown="if(event.key==='Enter')loginCliente()" />
+<button onclick="loginCliente()" style="width:100%">Accedi</button>
+<div id="msg-login"></div>
 </div>
-
+<div id="cliente-profilo" class="hidden">
+<div class="logout-bar">
+<span id="logout-nome"></span>
+<button class="secondary" onclick="logoutCliente()" style="padding:6px 14px;font-size:0.85em">Esci</button>
+</div>
+<div id="tessera-display"></div>
+<div class="card">
+<h4 style="margin-bottom:12px">Storico movimenti</h4>
+<ul class="storico" id="storico-lista"></ul>
+</div>
+<div class="card">
+<h4 style="margin-bottom:12px">Cambia password</h4>
+<input type="password" id="nuova-pwd-1" placeholder="Nuova password..." />
+<input type="password" id="nuova-pwd-2" placeholder="Ripeti nuova password..." />
+<button onclick="cambiaPassword()" class="secondary">Aggiorna password</button>
+<div id="msg-cambia-pwd"></div>
+</div>
+</div>
+</div>
 <!-- TAB ADMIN -->
 <div id="tab-admin" class="panel hidden">
-  <div class="tabs" id="sub-tabs">
-    <div class="tab active" onclick="mostraSubTab('sub-aggiungi')">Aggiungi Punti</div>
-    <div class="tab" onclick="mostraSubTab('sub-nuovo')">Nuovo Cliente</div>
-    <div class="tab" onclick="mostraSubTab('sub-lista')">Elenco</div>
+<div class="tabs" id="sub-tabs">
+<div class="tab active" onclick="mostraSubTab('sub-aggiungi')">Aggiungi Punti</div>
+<div class="tab" onclick="mostraSubTab('sub-nuovo')">Nuovo Cliente</div>
+<div class="tab" onclick="mostraSubTab('sub-lista')">Elenco</div>
+<div class="tab" onclick="mostraSubTab('sub-export');avviaExport()">Export</div>
 <div class="tab" onclick="mostraSubTab('sub-impostazioni');caricaImpostazioni()">Impostazioni</div>
-  </div>
-
-  <div id="sub-aggiungi" class="panel active">
-    <div class="card">
-      <h3 style="margin-bottom:16px">Aggiungi punti post-acquisto</h3>
-      <div class="search-row" style="margin-bottom:12px">
-        <input type="email" id="admin-cerca-email" placeholder="Email cliente..." />
-        <button onclick="cercaClienteAdmin()">Cerca</button>
-      </div>
-      <div id="admin-cliente-info" class="hidden">
-        <div id="admin-tessera-mini"></div>
-        <input type="number" id="importo-euro" placeholder="Importo ordine in euro" min="0" step="0.01" />
-        <input type="text" id="ordine-id" placeholder="ID ordine (opzionale)" />
-        <textarea id="nota-acquisto" placeholder="Note (opzionale)" rows="2"></textarea>
-        <div class="btn-row">
-          <button onclick="aggiungiPunti()">Aggiungi punti</button>
-          <button class="secondary" onclick="aggiungiPuntiManuali()">Punti manuali</button>
-        </div>
-      </div>
-      <div id="msg-admin-punti"></div>
-    </div>
-  </div>
-
-  <div id="sub-nuovo" class="panel hidden">
-    <div class="card">
-      <h3 style="margin-bottom:16px">Registra nuovo cliente</h3>
-      <input type="text" id="nuovo-nome" placeholder="Nome e cognome" />
-      <input type="email" id="nuovo-email" placeholder="Email" />
-      <input type="tel" id="nuovo-tel" placeholder="Telefono (opzionale)" />
-      <div style="position:relative">
-        <input type="text" id="nuovo-pwd" placeholder="Password temporanea (lascia vuoto = auto)" />
-        <span style="font-size:0.8em;color:#999;margin-top:-8px;display:block;margin-bottom:12px">Se vuoto, verrà generata automaticamente come: iniziali+anno (es. MA2025)</span>
-      </div>
-      <textarea id="nuovo-note" placeholder="Note interne (opzionale)" rows="2"></textarea>
-      <button onclick="creaCliente()">Crea tessera</button>
-      <div id="msg-nuovo-cliente"></div>
-    </div>
-  </div>
-
-  <div id="sub-lista" class="panel hidden">
-    <div class="card">
-      <div class="search-row" style="margin-bottom:12px">
-        <input type="text" id="filtro-lista" placeholder="Filtra per nome o email..." oninput="filtraClienti()" />
-        <button onclick="caricaClienti()">Aggiorna</button>
-      </div>
-      <div id="tabella-clienti"></div>
-    </div>
-  </div>
+</div>
+<div id="sub-aggiungi" class="panel active">
+<div class="card">
+<h3 style="margin-bottom:16px">Aggiungi punti post-acquisto</h3>
+<div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+<input type="text" id="admin-cerca-query" placeholder="Cerca per nome, cognome o email..." style="margin-bottom:0;flex:1;min-width:200px" onkeydown="if(event.key==='Enter')cercaClienteAdmin()" />
+<button onclick="cercaClienteAdmin()">Cerca</button>
+</div>
+<div id="admin-risultati-lista" class="hidden">
+<div class="clienti-risultati" id="admin-risultati-items"></div>
+</div>
+<div id="admin-cliente-info" class="hidden">
+<div id="admin-tessera-mini"></div>
+<input type="number" id="importo-euro" placeholder="Importo ordine in euro" min="0" step="0.01" />
+<input type="text" id="ordine-id" placeholder="ID ordine (opzionale)" />
+<textarea id="nota-acquisto" placeholder="Note (opzionale)" rows="2"></textarea>
+<div class="btn-row">
+<button onclick="aggiungiPunti()">Aggiungi punti</button>
+<button class="secondary" onclick="aggiungiPuntiManuali()">Punti manuali</button>
+<button class="secondary" onclick="resetCercaAdmin()">Nuova ricerca</button>
+</div>
+</div>
+<div id="msg-admin-punti"></div>
+</div>
+</div>
+<div id="sub-nuovo" class="panel hidden">
+<div class="card">
+<h3 style="margin-bottom:16px">Registra nuovo cliente</h3>
+<input type="text" id="nuovo-nome" placeholder="Nome e cognome" />
+<input type="email" id="nuovo-email" placeholder="Email" />
+<input type="tel" id="nuovo-tel" placeholder="Telefono (opzionale)" />
+<div style="position:relative">
+<input type="text" id="nuovo-pwd" placeholder="Password temporanea (lascia vuoto = auto)" />
+<span style="font-size:0.8em;color:#999;margin-top:-8px;display:block;margin-bottom:12px">Se vuoto, verrà generata automaticamente come: iniziali+anno (es. MA2025)</span>
+</div>
+<textarea id="nuovo-note" placeholder="Note interne (opzionale)" rows="2"></textarea>
+<button onclick="creaCliente()">Crea tessera</button>
+<div id="msg-nuovo-cliente"></div>
+</div>
+</div>
+<div id="sub-lista" class="panel hidden">
+<div class="card">
+<div class="search-row" style="margin-bottom:12px">
+<input type="text" id="filtro-lista" placeholder="Filtra per nome o email..." oninput="filtraClienti()" />
+<button onclick="caricaClienti()">Aggiorna</button>
+</div>
+<div id="tabella-clienti"></div>
+</div>
+</div>
+<div id="sub-export" class="panel hidden">
+<div class="card">
+<h3 style="margin-bottom:8px">Export tessere clienti</h3>
+<p style="color:#999;font-size:0.88em;margin-bottom:20px">Scarica un file CSV con tutti i dati dei clienti: punti, storico acquisti, premi e movimenti.</p>
+<div class="export-box">
+<div style="font-size:2em;margin-bottom:8px">📊</div>
+<p style="color:#666;margin-bottom:16px;font-size:0.9em">Il file includerà per ogni cliente:<br>nome, email, tessera ID, punti attuali, punti totali, premi ricevuti, data registrazione e tutti i movimenti.</p>
+<button class="success" onclick="esportaCSV()" style="font-size:1em;padding:12px 28px">⬇ Scarica CSV</button>
+</div>
+<div id="msg-export"></div>
 </div>
 </div>
 <div id="sub-impostazioni" class="panel hidden">
 <div class="card">
 <h3 style="margin-bottom:16px">Domanda di accesso</h3>
-<p style="color:#999;font-size:0.88em;margin-bottom:16px">Modifica la domanda e la risposta segreta per l'accesso all'area riservata (/console)</p>
+<p style="color:#999;font-size:0.88em;margin-bottom:16px">Modifica la domanda e la risposta segreta per l'accesso all'area riservata (?console)</p>
 <label style="font-size:0.88em;color:#666;display:block;margin-bottom:4px">Domanda</label>
 <input type="text" id="imp-domanda" placeholder="es. toc toc" />
 <label style="font-size:0.88em;color:#666;display:block;margin-bottom:4px">Risposta</label>
@@ -202,46 +215,43 @@ tr:hover td { background: #fafafa; }
 <div id="msg-impostazioni"></div>
 </div>
 </div>
-
-</div><!-- /page-cliente -->
-
+</div>
+</div>
+</div>
 <!-- MODAL PREMIO -->
 <div id="modal-premio" class="modal hidden">
-  <div class="modal-box" style="text-align:center">
-    <div style="font-size:3em;margin-bottom:8px">🎁</div>
-    <h2 style="color:#8B6914;margin-bottom:8px">Premio sbloccato!</h2>
-    <p id="modal-premio-text" style="margin-bottom:20px;color:#666;"></p>
-    <button onclick="document.getElementById('modal-premio').classList.add('hidden')">OK</button>
-  </div>
+<div class="modal-box" style="text-align:center">
+<div style="font-size:3em;margin-bottom:8px">🎁</div>
+<h2 style="color:#8B6914;margin-bottom:8px">Premio sbloccato!</h2>
+<p id="modal-premio-text" style="margin-bottom:20px;color:#666;"></p>
+<button onclick="document.getElementById('modal-premio').classList.add('hidden')">OK</button>
 </div>
-
+</div>
 <!-- MODAL RESET PASSWORD (admin) -->
 <div id="modal-reset-pwd" class="modal hidden">
-  <div class="modal-box">
-    <h3 style="margin-bottom:16px;color:#8B6914">Reimposta password cliente</h3>
-    <p id="modal-reset-nome" style="margin-bottom:12px;color:#666;font-size:0.9em"></p>
-    <input type="text" id="reset-pwd-input" placeholder="Nuova password temporanea..." />
-    <div class="btn-row">
-      <button onclick="confermaResetPassword()">Salva</button>
-      <button class="secondary" onclick="document.getElementById('modal-reset-pwd').classList.add('hidden')">Annulla</button>
-    </div>
-    <div id="msg-reset-pwd"></div>
-  </div>
+<div class="modal-box">
+<h3 style="margin-bottom:16px;color:#8B6914">Reimposta password cliente</h3>
+<p id="modal-reset-nome" style="margin-bottom:12px;color:#666;font-size:0.9em"></p>
+<input type="text" id="reset-pwd-input" placeholder="Nuova password temporanea..." />
+<div class="btn-row">
+<button onclick="confermaResetPassword()">Salva</button>
+<button class="secondary" onclick="document.getElementById('modal-reset-pwd').classList.add('hidden')">Annulla</button>
 </div>
-
+<div id="msg-reset-pwd"></div>
+</div>
+</div>
 <!-- OVERLAY ADMIN LOGIN -->
 <div id="overlay-admin" class="admin-pass hidden">
-  <div class="admin-pass-box">
-    <h3 style="margin-bottom:16px;color:#8B6914">Accesso Admin</h3>
-    <input type="password" id="admin-pwd" placeholder="Password..." onkeydown="if(event.key==='Enter')verificaAdmin()" />
-    <div class="btn-row" style="justify-content:center;margin-top:4px">
-      <button onclick="verificaAdmin()">Entra</button>
-      <button class="secondary" onclick="document.getElementById('overlay-admin').classList.add('hidden')">Annulla</button>
-    </div>
-    <p id="msg-pwd" style="color:#c62828;margin-top:8px;font-size:0.9em"></p>
-  </div>
+<div class="admin-pass-box">
+<h3 style="margin-bottom:16px;color:#8B6914">Accesso Admin</h3>
+<input type="password" id="admin-pwd" placeholder="Password..." onkeydown="if(event.key==='Enter')verificaAdmin()" />
+<div class="btn-row" style="justify-content:center;margin-top:4px">
+<button onclick="verificaAdmin()">Entra</button>
+<button class="secondary" onclick="document.getElementById('overlay-admin').classList.add('hidden')">Annulla</button>
 </div>
-
+<p id="msg-pwd" style="color:#c62828;margin-top:8px;font-size:0.9em"></p>
+</div>
+</div>
 <script>
 var SUPABASE_URL = 'https://lixlgaxkjtjbtudjownk.supabase.co';
 var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpeGxnYXhranRqYnR1ZGpvd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MjQyNjIsImV4cCI6MjA5NzEwMDI2Mn0.o9P2VoMky3Khfz84XkPKPbds5adOWmNM_HRUiY8St-4';
@@ -255,8 +265,6 @@ var resetPwdClienteId = null;
 
 // ─── UTILS ───────────────────────────────────────────────
 function mostraTab(id) {
-  var tabs = document.querySelectorAll('#main-tabs .tab');
-  tabs[0].classList.toggle('active', id === 'cliente');
   ['tab-cliente','tab-admin'].forEach(function(t) {
     document.getElementById(t).classList.toggle('active', 'tab-'+id === t);
     document.getElementById(t).classList.toggle('hidden', 'tab-'+id !== t);
@@ -264,12 +272,12 @@ function mostraTab(id) {
   if (id === 'admin') caricaClienti();
 }
 function mostraSubTab(id) {
+  var ids = ['sub-aggiungi','sub-nuovo','sub-lista','sub-export','sub-impostazioni'];
   var tabs = document.querySelectorAll('#sub-tabs .tab');
-  var ids = ['sub-aggiungi','sub-nuovo','sub-lista'];
   tabs.forEach(function(t,i){ t.classList.toggle('active', ids[i] === id); });
   ids.forEach(function(s){
-    document.getElementById(s).classList.toggle('active', s === id);
-    document.getElementById(s).classList.toggle('hidden', s !== id);
+    var el = document.getElementById(s);
+    if(el){ el.classList.toggle('active', s === id); el.classList.toggle('hidden', s !== id); }
   });
   if (id === 'sub-lista') caricaClienti();
 }
@@ -288,10 +296,9 @@ function verificaAdmin() {
     document.getElementById('msg-pwd').textContent = 'Password errata';
   }
 }
-// ─── ACCESSO /console ────────────────────────────────────
+
+// ─── ACCESSO /?console ───────────────────────────────────
 async function inizializzaConsole() {
-  var path = window.location.pathname;
-  if (path !== '/console') { window.location.href = '/'; return; }
   document.getElementById('page-cliente').classList.add('hidden');
   document.getElementById('page-console').classList.remove('hidden');
   var r = await db.from('impostazioni').select('domanda_accesso,risposta_accesso').eq('id',1).single();
@@ -307,9 +314,7 @@ async function verificaRisposta() {
     document.getElementById('console-step-domanda').classList.add('hidden');
     document.getElementById('console-step-password').classList.remove('hidden');
     document.getElementById('console-risposta').value = '';
-  } else {
-    mostraMsg('msg-console-domanda','Risposta non corretta.','error');
-  }
+  } else { mostraMsg('msg-console-domanda','Risposta non corretta.','error'); }
 }
 async function verificaPasswordConsole() {
   var pwd = document.getElementById('console-pwd').value;
@@ -317,10 +322,12 @@ async function verificaPasswordConsole() {
     adminAutenticato = true;
     document.getElementById('page-console').classList.add('hidden');
     document.getElementById('page-cliente').classList.remove('hidden');
-    mostraTab('admin');
-  } else {
-    mostraMsg('msg-console-password','Password errata.','error');
-  }
+    document.getElementById('tab-cliente').classList.remove('active');
+    document.getElementById('tab-cliente').classList.add('hidden');
+    document.getElementById('tab-admin').classList.add('active');
+    document.getElementById('tab-admin').classList.remove('hidden');
+    caricaClienti();
+  } else { mostraMsg('msg-console-password','Password errata.','error'); }
 }
 
 function puntiHTML(punti) {
@@ -346,6 +353,7 @@ function generaPasswordAuto(nome) {
   var iniziali = parti.map(function(p){ return p.charAt(0).toUpperCase(); }).join('');
   return iniziali + new Date().getFullYear();
 }
+
 
 // ─── LOGIN CLIENTE ────────────────────────────────────────
 async function loginCliente() {
@@ -416,21 +424,69 @@ async function mostraProfiloCliente(c) {
     }).join('');
 }
 
-// ─── ADMIN: CERCA CLIENTE ─────────────────────────────────
+// ─── ADMIN: CERCA CLIENTE (nome/cognome/email) ────────────
 async function cercaClienteAdmin() {
-  var email = document.getElementById('admin-cerca-email').value.trim();
-  if (!email) return;
-  var r = await db.from('clienti').select('*').eq('email', email).single();
-  if (r.error || !r.data) { mostraMsg('msg-admin-punti', 'Cliente non trovato.', 'error'); return; }
-  clienteAdminCorrente = r.data;
+  var query = document.getElementById('admin-cerca-query').value.trim();
+  if (!query) return;
+  // Cerca per email esatta o per nome (ilike)
+  var byEmail = await db.from('clienti').select('*').ilike('email', '%' + query + '%');
+  var byNome = await db.from('clienti').select('*').ilike('nome', '%' + query + '%');
+  var risultati = [];
+  var ids = new Set();
+  var lists = [byEmail.data||[], byNome.data||[]];
+  lists.forEach(function(lst){
+    lst.forEach(function(c){ if(!ids.has(c.id)){ ids.add(c.id); risultati.push(c); } });
+  });
+  if (risultati.length === 0) {
+    mostraMsg('msg-admin-punti','Nessun cliente trovato.','error');
+    document.getElementById('admin-risultati-lista').classList.add('hidden');
+    return;
+  }
+  if (risultati.length === 1) {
+    // Selezione diretta
+    document.getElementById('admin-risultati-lista').classList.add('hidden');
+    selezionaClienteAdmin(risultati[0]);
+    return;
+  }
+  // Mostra lista con email
+  var html = risultati.map(function(c){
+    return '<div class="cliente-risultato-item" onclick='selezionaClienteAdminById("' + c.id + '")'>'+
+      '<div class="nome">' + c.nome + '</div>' +
+      '<div class="email">' + c.email + ' &mdash; tessera: ' + c.tessera_id + '</div>' +
+    '</div>';
+  }).join('');
+  document.getElementById('admin-risultati-items').innerHTML = html;
+  document.getElementById('admin-risultati-lista').classList.remove('hidden');
+  document.getElementById('admin-cliente-info').classList.add('hidden');
+}
+
+var _cacheClientiCerca = {};
+async function selezionaClienteAdminById(id) {
+  var r = await db.from('clienti').select('*').eq('id', id).single();
+  if (r.error || !r.data) return;
+  document.getElementById('admin-risultati-lista').classList.add('hidden');
+  selezionaClienteAdmin(r.data);
+}
+function selezionaClienteAdmin(c) {
+  clienteAdminCorrente = c;
   document.getElementById('admin-cliente-info').classList.remove('hidden');
   document.getElementById('admin-tessera-mini').innerHTML =
     '<div class="tessera" style="padding:16px;margin-bottom:16px">' +
-    '<div class="tessera-nome">' + r.data.nome + '</div>' +
-    '<div class="tessera-id">' + r.data.email + ' &mdash; ' + r.data.tessera_id + '</div>' +
-    '<div style="font-size:1.8em;font-weight:800;margin:8px 0">' + r.data.punti + ' punti</div>' +
-    '</div>' + puntiHTML(r.data.punti);
+    '<div class="tessera-nome">' + c.nome + '</div>' +
+    '<div class="tessera-id">' + c.email + ' &mdash; ' + c.tessera_id + '</div>' +
+    '<div style="font-size:1.8em;font-weight:800;margin:8px 0">' + c.punti + ' punti</div>' +
+    '</div>' + puntiHTML(c.punti);
 }
+function resetCercaAdmin() {
+  clienteAdminCorrente = null;
+  document.getElementById('admin-cerca-query').value = '';
+  document.getElementById('admin-risultati-lista').classList.add('hidden');
+  document.getElementById('admin-cliente-info').classList.add('hidden');
+  document.getElementById('importo-euro').value = '';
+  document.getElementById('ordine-id').value = '';
+  document.getElementById('nota-acquisto').value = '';
+}
+
 async function aggiungiPunti() {
   if (!clienteAdminCorrente) return;
   var importo = parseFloat(document.getElementById('importo-euro').value);
@@ -448,7 +504,8 @@ async function aggiungiPunti() {
   document.getElementById('importo-euro').value = '';
   document.getElementById('ordine-id').value = '';
   document.getElementById('nota-acquisto').value = '';
-  await cercaClienteAdmin();
+  var aggiornato = await db.from('clienti').select('*').eq('id', clienteAdminCorrente.id).single();
+  if (!aggiornato.error) selezionaClienteAdmin(aggiornato.data);
 }
 async function aggiungiPuntiManuali() {
   if (!clienteAdminCorrente) return;
@@ -462,7 +519,8 @@ async function aggiungiPuntiManuali() {
   var finali = nuovi - (premi * 10);
   await db.from('clienti').update({ punti: finali, punti_totali: clienteAdminCorrente.punti_totali + punti, premi_riscattati: clienteAdminCorrente.premi_riscattati + premi }).eq('id', clienteAdminCorrente.id);
   mostraMsg('msg-admin-punti', '+' + punti + ' punti manuali aggiunti', 'success');
-  await cercaClienteAdmin();
+  var aggiornato = await db.from('clienti').select('*').eq('id', clienteAdminCorrente.id).single();
+  if (!aggiornato.error) selezionaClienteAdmin(aggiornato.data);
 }
 
 // ─── ADMIN: CREA CLIENTE ──────────────────────────────────
@@ -538,70 +596,107 @@ async function confermaEliminaCliente(clienteId, nomeCliente) {
   caricaClienti();
 }
 
+// ─── ADMIN: EXPORT CSV ────────────────────────────────────
+async function avviaExport() {
+  // Solo precarica la lista se non già caricata
+  if (tuttiClienti.length === 0) await caricaClienti();
+}
+async function esportaCSV() {
+  mostraMsg('msg-export','Preparazione export in corso...','info');
+  // Carica tutti i clienti
+  var rc = await db.from('clienti').select('*').order('created_at', {ascending: false});
+  if (rc.error) { mostraMsg('msg-export','Errore caricamento clienti: ' + rc.error.message,'error'); return; }
+  var clienti = rc.data || [];
+  if (clienti.length === 0) { mostraMsg('msg-export','Nessun cliente presente.','error'); return; }
+  // Carica tutti i movimenti
+  var rm = await db.from('movimenti').select('*').order('created_at', {ascending: false});
+  var movimenti = rm.data || [];
+  // Raggruppa movimenti per cliente
+  var movPerCliente = {};
+  movimenti.forEach(function(m){
+    if (!movPerCliente[m.cliente_id]) movPerCliente[m.cliente_id] = [];
+    movPerCliente[m.cliente_id].push(m);
+  });
+  // Riga header
+  var righe = [];
+  righe.push([
+    'Tessera ID','Nome','Email','Telefono','Punti Attuali','Punti Totali','Premi Ricevuti',
+    'Password Temp','Note','Data Registrazione',
+    'N. Movimenti','Acquisti (EUR totali)','Ultimo Movimento'
+  ].map(csvCell).join(','));
+  clienti.forEach(function(c){
+    var movs = movPerCliente[c.id] || [];
+    var totEur = movs.filter(function(m){ return m.tipo==='acquisto' && m.importo_euro; })
+                     .reduce(function(s,m){ return s + parseFloat(m.importo_euro||0); }, 0);
+    var ultimoMov = movs.length > 0 ? formatData(movs[0].created_at) : '';
+    righe.push([
+      c.tessera_id, c.nome, c.email, c.telefono||'',
+      c.punti, c.punti_totali, c.premi_riscattati||0,
+      c.password_temp ? 'Si' : 'No',
+      c.note||'',
+      formatData(c.created_at),
+      movs.length,
+      totEur.toFixed(2),
+      ultimoMov
+    ].map(csvCell).join(','));
+  });
+  // Sezione movimenti dettagliata
+  righe.push('');
+  righe.push('--- DETTAGLIO MOVIMENTI ---');
+  righe.push(['Tessera ID','Nome Cliente','Email','Data','Tipo','Punti','Importo EUR','Ordine ID','Nota'].map(csvCell).join(','));
+  clienti.forEach(function(c){
+    var movs = movPerCliente[c.id] || [];
+    movs.forEach(function(m){
+      righe.push([
+        c.tessera_id, c.nome, c.email,
+        formatData(m.created_at),
+        m.tipo, m.punti,
+        m.importo_euro ? Number(m.importo_euro).toFixed(2) : '',
+        m.ordine_id||'', m.nota||''
+      ].map(csvCell).join(','));
+    });
+  });
+  var csv = '\uFEFF' + righe.join('\n'); // BOM per Excel
+  var blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  var oggi = new Date().toISOString().slice(0,10);
+  a.download = 'tessere_srart_' + oggi + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  mostraMsg('msg-export','Export completato! File scaricato.','success');
+}
+function csvCell(val) {
+  var s = String(val === null || val === undefined ? '' : val);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
 // ─── IMPOSTAZIONI ────────────────────────────────────────
 async function caricaImpostazioni() {
-var r = await db.from('impostazioni').select('*').eq('id',1).single();
-if (!r.error && r.data) {
-document.getElementById('imp-domanda').value = r.data.domanda_accesso;
-document.getElementById('imp-risposta').value = r.data.risposta_accesso;
-}
+  var r = await db.from('impostazioni').select('*').eq('id',1).single();
+  if (!r.error && r.data) {
+    document.getElementById('imp-domanda').value = r.data.domanda_accesso;
+    document.getElementById('imp-risposta').value = r.data.risposta_accesso;
+  }
 }
 async function salvaImpostazioni() {
-var domanda = document.getElementById('imp-domanda').value.trim();
-var risposta = document.getElementById('imp-risposta').value.trim();
-if (!domanda || !risposta) { mostraMsg('msg-impostazioni','Compila entrambi i campi.','error'); return; }
-var r = await db.from('impostazioni').update({ domanda_accesso: domanda, risposta_accesso: risposta, updated_at: new Date().toISOString() }).eq('id',1);
-if (r.error) { mostraMsg('msg-impostazioni','Errore: ' + r.error.message,'error'); return; }
-mostraMsg('msg-impostazioni','Impostazioni salvate!','success');
+  var domanda = document.getElementById('imp-domanda').value.trim();
+  var risposta = document.getElementById('imp-risposta').value.trim();
+  if (!domanda || !risposta) { mostraMsg('msg-impostazioni','Compila entrambi i campi.','error'); return; }
+  var r = await db.from('impostazioni').update({ domanda_accesso: domanda, risposta_accesso: risposta, updated_at: new Date().toISOString() }).eq('id',1);
+  if (r.error) { mostraMsg('msg-impostazioni','Errore: ' + r.error.message,'error'); return; }
+  mostraMsg('msg-impostazioni','Impostazioni salvate!','success');
 }
-// ─── AGGIORNA mostraSubTab per includere impostazioni ────
-var _origMostraSubTab = mostraSubTab;
-mostraSubTab = function(id) {
-var tabs = document.querySelectorAll('#sub-tabs .tab');
-var ids = ['sub-aggiungi','sub-nuovo','sub-lista','sub-impostazioni'];
-tabs.forEach(function(t,i){ t.classList.toggle('active', ids[i] === id); });
-ids.forEach(function(s){
-var el = document.getElementById(s);
-if(el){ el.classList.toggle('active', s === id); el.classList.toggle('hidden', s !== id); }
-});
-if (id === 'sub-lista') caricaClienti();
-};
-// ─── ACCESSO /console ────────────────────────────────────
-async function inizializzaConsole() {
-document.getElementById('page-cliente').classList.add('hidden');
-document.getElementById('page-console').classList.remove('hidden');
-var r = await db.from('impostazioni').select('domanda_accesso,risposta_accesso').eq('id',1).single();
-if (!r.error && r.data) {
-document.getElementById('console-domanda-testo').textContent = r.data.domanda_accesso;
-window._rispostaCorretta = r.data.risposta_accesso;
-}
-}
-async function verificaRisposta() {
-var risposta = document.getElementById('console-risposta').value.trim();
-if (!risposta) return;
-if (risposta.toLowerCase() === (window._rispostaCorretta||'1510').toLowerCase()) {
-document.getElementById('console-step-domanda').classList.add('hidden');
-document.getElementById('console-step-password').classList.remove('hidden');
-document.getElementById('console-risposta').value = '';
-} else { mostraMsg('msg-console-domanda','Risposta non corretta.','error'); }
-}
-async function verificaPasswordConsole() {
-var pwd = document.getElementById('console-pwd').value;
-if (pwd === ADMIN_PASSWORD) {
-adminAutenticato = true;
-document.getElementById('page-console').classList.add('hidden');
-document.getElementById('page-cliente').classList.remove('hidden');
-// Mostra direttamente tab-admin senza passare per mostraTab
-document.getElementById('tab-cliente').classList.remove('active');
-document.getElementById('tab-cliente').classList.add('hidden');
-document.getElementById('tab-admin').classList.add('active');
-document.getElementById('tab-admin').classList.remove('hidden');
-caricaClienti();
-} else { mostraMsg('msg-console-password','Password errata.','error'); }
-}
+
 // ─── INIT ROUTE ──────────────────────────────────────────
 if (new URLSearchParams(window.location.search).has('console')) { inizializzaConsole(); }
 </script>
 </body>
-<!-- v1.4 -->
+<!-- v1.5 -->
 </html>
