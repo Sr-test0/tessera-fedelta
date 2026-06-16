@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tessera Fedeltà SR Art</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
@@ -194,11 +195,11 @@ tr:hover td { background: #fafafa; }
 <div id="sub-export" class="panel hidden">
 <div class="card">
 <h3 style="margin-bottom:8px">Export tessere clienti</h3>
-<p style="color:#999;font-size:0.88em;margin-bottom:20px">Scarica un file CSV con tutti i dati dei clienti: punti, storico acquisti, premi e movimenti.</p>
+<p style="color:#999;font-size:0.88em;margin-bottom:20px">Scarica un file Excel con 3 fogli: Clienti, Movimenti e Riepilogo statistiche. Ogni foglio ha i filtri automatici attivi.</p>
 <div class="export-box">
 <div style="font-size:2em;margin-bottom:8px">📊</div>
-<p style="color:#666;margin-bottom:16px;font-size:0.9em">Il file includerà per ogni cliente:<br>nome, email, tessera ID, punti attuali, punti totali, premi ricevuti, data registrazione e tutti i movimenti.</p>
-<button class="success" onclick="esportaCSV()" style="font-size:1em;padding:12px 28px">⬇ Scarica CSV</button>
+<p style="color:#666;margin-bottom:16px;font-size:0.9em"><strong>Foglio 1 - Clienti:</strong> riepilogo per ogni cliente con punti, acquisti, premi<br><strong>Foglio 2 - Movimenti:</strong> storico completo filtrabile per cliente, data, tipo<br><strong>Foglio 3 - Riepilogo:</strong> statistiche aggregate</p>
+<button class="success" onclick="esportaXLSX()" style="font-size:1em;padding:12px 28px">⬇ Scarica Excel (.xlsx)</button>
 </div>
 <div id="msg-export"></div>
 </div>
@@ -596,85 +597,116 @@ async function confermaEliminaCliente(clienteId, nomeCliente) {
   caricaClienti();
 }
 
-// ─── ADMIN: EXPORT CSV ────────────────────────────────────
+// ─── ADMIN: EXPORT XLSX ─────────────────────────────────────
 async function avviaExport() {
-  // Solo precarica la lista se non già caricata
   if (tuttiClienti.length === 0) await caricaClienti();
 }
-async function esportaCSV() {
+async function esportaXLSX() {
   mostraMsg('msg-export','Preparazione export in corso...','info');
-  // Carica tutti i clienti
   var rc = await db.from('clienti').select('*').order('created_at', {ascending: false});
-  if (rc.error) { mostraMsg('msg-export','Errore caricamento clienti: ' + rc.error.message,'error'); return; }
+  if (rc.error) { mostraMsg('msg-export','Errore: ' + rc.error.message,'error'); return; }
   var clienti = rc.data || [];
   if (clienti.length === 0) { mostraMsg('msg-export','Nessun cliente presente.','error'); return; }
-  // Carica tutti i movimenti
   var rm = await db.from('movimenti').select('*').order('created_at', {ascending: false});
   var movimenti = rm.data || [];
-  // Raggruppa movimenti per cliente
   var movPerCliente = {};
   movimenti.forEach(function(m){
     if (!movPerCliente[m.cliente_id]) movPerCliente[m.cliente_id] = [];
     movPerCliente[m.cliente_id].push(m);
   });
-  // Riga header
-  var righe = [];
-  righe.push([
-    'Tessera ID','Nome','Email','Telefono','Punti Attuali','Punti Totali','Premi Ricevuti',
-    'Password Temp','Note','Data Registrazione',
-    'N. Movimenti','Acquisti (EUR totali)','Ultimo Movimento'
-  ].map(csvCell).join(','));
+
+  // ── FOGLIO 1: CLIENTI ──
+  var wsClientiData = [
+    ['Tessera ID','Nome','Email','Telefono','Punti Attuali','Punti Totali','Premi Ricevuti','N. Acquisti','Totale Acquistato (EUR)','Data Registrazione','Stato Password','Note']
+  ];
   clienti.forEach(function(c){
     var movs = movPerCliente[c.id] || [];
-    var totEur = movs.filter(function(m){ return m.tipo==='acquisto' && m.importo_euro; })
-                     .reduce(function(s,m){ return s + parseFloat(m.importo_euro||0); }, 0);
-    var ultimoMov = movs.length > 0 ? formatData(movs[0].created_at) : '';
-    righe.push([
+    var acquisti = movs.filter(function(m){ return m.tipo==='acquisto'; });
+    var totEur = acquisti.reduce(function(s,m){ return s + parseFloat(m.importo_euro||0); }, 0);
+    wsClientiData.push([
       c.tessera_id, c.nome, c.email, c.telefono||'',
       c.punti, c.punti_totali, c.premi_riscattati||0,
-      c.password_temp ? 'Si' : 'No',
-      c.note||'',
-      formatData(c.created_at),
-      movs.length,
-      totEur.toFixed(2),
-      ultimoMov
-    ].map(csvCell).join(','));
+      acquisti.length,
+      Math.round(totEur*100)/100,
+      c.created_at ? c.created_at.slice(0,10) : '',
+      c.password_temp ? 'Temporanea' : 'Impostata',
+      c.note||''
+    ]);
   });
-  // Sezione movimenti dettagliata
-  righe.push('');
-  righe.push('--- DETTAGLIO MOVIMENTI ---');
-  righe.push(['Tessera ID','Nome Cliente','Email','Data','Tipo','Punti','Importo EUR','Ordine ID','Nota'].map(csvCell).join(','));
+  var wsClienti = XLSX.utils.aoa_to_sheet(wsClientiData);
+  wsClienti['!cols'] = [
+    {wch:12},{wch:22},{wch:30},{wch:16},{wch:14},{wch:13},{wch:16},{wch:13},{wch:22},{wch:20},{wch:18},{wch:20}
+  ];
+  wsClienti['!autofilter'] = { ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:wsClientiData.length-1,c:11}}) };
+
+  // ── FOGLIO 2: MOVIMENTI ──
+  var wsMovData = [
+    ['Tessera ID','Nome Cliente','Email','Data','Tipo','Punti','Importo EUR','Ordine ID','Nota']
+  ];
   clienti.forEach(function(c){
     var movs = movPerCliente[c.id] || [];
     movs.forEach(function(m){
-      righe.push([
+      wsMovData.push([
         c.tessera_id, c.nome, c.email,
-        formatData(m.created_at),
-        m.tipo, m.punti,
-        m.importo_euro ? Number(m.importo_euro).toFixed(2) : '',
+        m.created_at ? m.created_at.slice(0,10) : '',
+        m.tipo.charAt(0).toUpperCase()+m.tipo.slice(1),
+        m.punti,
+        m.importo_euro ? Math.round(parseFloat(m.importo_euro)*100)/100 : '',
         m.ordine_id||'', m.nota||''
-      ].map(csvCell).join(','));
+      ]);
     });
   });
-  var csv = '\uFEFF' + righe.join('\n'); // BOM per Excel
-  var blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  var oggi = new Date().toISOString().slice(0,10);
-  a.download = 'tessere_srart_' + oggi + '.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  mostraMsg('msg-export','Export completato! File scaricato.','success');
-}
-function csvCell(val) {
-  var s = String(val === null || val === undefined ? '' : val);
-  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-    return '"' + s.replace(/"/g, '""') + '"';
+  var wsMov = XLSX.utils.aoa_to_sheet(wsMovData);
+  wsMov['!cols'] = [{wch:12},{wch:22},{wch:30},{wch:12},{wch:12},{wch:8},{wch:14},{wch:16},{wch:24}];
+  wsMov['!autofilter'] = { ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:wsMovData.length-1,c:8}}) };
+
+  // ── FOGLIO 3: RIEPILOGO ──
+  var totEurAll = movimenti.filter(function(m){ return m.tipo==='acquisto' && m.importo_euro; })
+    .reduce(function(s,m){ return s + parseFloat(m.importo_euro||0); }, 0);
+  var totPuntiEmessi = movimenti.filter(function(m){ return m.punti > 0; })
+    .reduce(function(s,m){ return s + m.punti; }, 0);
+  var totPremi = clienti.reduce(function(s,c){ return s + (c.premi_riscattati||0); }, 0);
+  var oggi = new Date().toLocaleDateString('it-IT');
+  var wsRiepData = [
+    ['SR Art - Riepilogo Tessere Fedeltà'],
+    ['Data export:', oggi],
+    [''],
+    ['STATISTICHE GENERALI',''],
+    ['Clienti totali:', clienti.length],
+    ['Clienti con punti > 0:', clienti.filter(function(c){ return c.punti > 0; }).length],
+    ['Punti totali emessi:', totPuntiEmessi],
+    ['Premi riscattati totali:', totPremi],
+    ['Totale acquistato (EUR):', Math.round(totEurAll*100)/100],
+    ['Totale movimenti registrati:', movimenti.length],
+    [''],
+    ['DISTRIBUZIONE PUNTI',''],
+    ['0 punti:', clienti.filter(function(c){ return c.punti===0; }).length],
+    ['1-4 punti:', clienti.filter(function(c){ return c.punti>=1 && c.punti<=4; }).length],
+    ['5-9 punti:', clienti.filter(function(c){ return c.punti>=5 && c.punti<=9; }).length],
+    ['10+ punti:', clienti.filter(function(c){ return c.punti>=10; }).length],
+  ];
+  var wsRiep = XLSX.utils.aoa_to_sheet(wsRiepData);
+  wsRiep['!cols'] = [{wch:30},{wch:20}];
+
+  // ── STILE INTESTAZIONI (grassetto) ──
+  function styleHeaders(ws, nCols) {
+    for (var c = 0; c < nCols; c++) {
+      var addr = XLSX.utils.encode_cell({r:0, c:c});
+      if (!ws[addr]) continue;
+      ws[addr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'C9A227' } } };
+    }
   }
-  return s;
+  styleHeaders(wsClienti, 12);
+  styleHeaders(wsMov, 9);
+
+  // ── CREA E SCARICA WORKBOOK ──
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsClienti, 'Clienti');
+  XLSX.utils.book_append_sheet(wb, wsMov, 'Movimenti');
+  XLSX.utils.book_append_sheet(wb, wsRiep, 'Riepilogo');
+  var oggi2 = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, 'tessere_srart_' + oggi2 + '.xlsx');
+  mostraMsg('msg-export','Export completato! File Excel scaricato.','success');
 }
 
 // ─── IMPOSTAZIONI ────────────────────────────────────────
