@@ -450,7 +450,7 @@ async function cercaClienteAdmin() {
   }
   // Mostra lista con email
   var html = risultati.map(function(c){
-    return '<div class="cliente-risultato-item" onclick=\"selezionaClienteAdminById('" + c.id + "')\">'+
+    return '<div class="cliente-risultato-item" onclick="selezionaClienteAdminById(\'' + c.id + '\')">'+
       '<div class="nome">' + c.nome + '</div>' +
       '<div class="email">' + c.email + ' &mdash; tessera: ' + c.tessera_id + '</div>' +
     '</div>';
