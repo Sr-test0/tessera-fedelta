@@ -598,7 +598,7 @@ caricaClienti();
 } else { mostraMsg('msg-console-password','Password errata.','error'); }
 }
 // ─── INIT ROUTE ──────────────────────────────────────────
-if (window.location.pathname === '/console') { inizializzaConsole(); }
+if (new URLSearchParams(window.location.search).has('console')) { inizializzaConsole(); }
 </script>
 </body>
 <!-- v1.4 -->
