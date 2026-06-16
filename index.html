@@ -68,6 +68,27 @@ tr:hover td { background: #fafafa; }
 </style>
 </head>
 <body>
+<!-- PAGE CONSOLE -->
+<div id="page-console" class="hidden" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px">
+<div style="background:white;border-radius:16px;padding:32px;max-width:380px;width:100%;box-shadow:0 4px 20px rgba(0,0,0,0.12);text-align:center">
+<img src="logo.png" alt="SR Art" style="max-width:100px;width:40%;mix-blend-mode:multiply;margin-bottom:16px" />
+<h2 style="color:#8B6914;margin-bottom:24px">Area Riservata</h2>
+<div id="console-step-domanda">
+<p id="console-domanda-testo" style="font-size:1.1em;font-weight:600;margin-bottom:16px;color:#333"></p>
+<input type="text" id="console-risposta" placeholder="Risposta..." onkeydown="if(event.key==='Enter')verificaRisposta()" />
+<button onclick="verificaRisposta()" style="width:100%">Continua</button>
+<div id="msg-console-domanda"></div>
+</div>
+<div id="console-step-password" class="hidden">
+<p style="color:#999;font-size:0.9em;margin-bottom:16px">Inserisci la password di accesso</p>
+<input type="password" id="console-pwd" placeholder="Password..." onkeydown="if(event.key==='Enter')verificaPasswordConsole()" />
+<button onclick="verificaPasswordConsole()" style="width:100%">Accedi</button>
+<div id="msg-console-password"></div>
+</div>
+</div>
+</div>
+<!-- PAGE PRINCIPALE -->
+<div id="page-cliente">
 <div class="container">
 <div style="text-align:center;margin-bottom:8px;padding-top:8px">
 <img src="logo.png" alt="SR Art Logo" style="max-width:180px;width:50%;mix-blend-mode:multiply;" />
@@ -77,7 +98,6 @@ tr:hover td { background: #fafafa; }
 
 <div class="tabs" id="main-tabs">
   <div class="tab active" onclick="mostraTab('cliente')">La mia tessera</div>
-  <div class="tab" onclick="richiestaAdmin()">Pannello Admin</div>
 </div>
 
 <!-- TAB CLIENTE -->
@@ -121,6 +141,7 @@ tr:hover td { background: #fafafa; }
     <div class="tab active" onclick="mostraSubTab('sub-aggiungi')">Aggiungi Punti</div>
     <div class="tab" onclick="mostraSubTab('sub-nuovo')">Nuovo Cliente</div>
     <div class="tab" onclick="mostraSubTab('sub-lista')">Elenco</div>
+<div class="tab" onclick="mostraSubTab('sub-impostazioni');caricaImpostazioni()">Impostazioni</div>
   </div>
 
   <div id="sub-aggiungi" class="panel active">
@@ -171,6 +192,20 @@ tr:hover td { background: #fafafa; }
   </div>
 </div>
 </div>
+<div id="sub-impostazioni" class="panel hidden">
+<div class="card">
+<h3 style="margin-bottom:16px">Domanda di accesso</h3>
+<p style="color:#999;font-size:0.88em;margin-bottom:16px">Modifica la domanda e la risposta segreta per l'accesso all'area riservata (/console)</p>
+<label style="font-size:0.88em;color:#666;display:block;margin-bottom:4px">Domanda</label>
+<input type="text" id="imp-domanda" placeholder="es. toc toc" />
+<label style="font-size:0.88em;color:#666;display:block;margin-bottom:4px">Risposta</label>
+<input type="text" id="imp-risposta" placeholder="es. 1510" />
+<button onclick="salvaImpostazioni()">Salva modifiche</button>
+<div id="msg-impostazioni"></div>
+</div>
+</div>
+
+</div><!-- /page-cliente -->
 
 <!-- MODAL PREMIO -->
 <div id="modal-premio" class="modal hidden">
@@ -224,7 +259,6 @@ var resetPwdClienteId = null;
 function mostraTab(id) {
   var tabs = document.querySelectorAll('#main-tabs .tab');
   tabs[0].classList.toggle('active', id === 'cliente');
-  tabs[1].classList.toggle('active', id === 'admin');
   ['tab-cliente','tab-admin'].forEach(function(t) {
     document.getElementById(t).classList.toggle('active', 'tab-'+id === t);
     document.getElementById(t).classList.toggle('hidden', 'tab-'+id !== t);
@@ -256,6 +290,41 @@ function verificaAdmin() {
     document.getElementById('msg-pwd').textContent = 'Password errata';
   }
 }
+// ─── ACCESSO /console ────────────────────────────────────
+async function inizializzaConsole() {
+  var path = window.location.pathname;
+  if (path !== '/console') { window.location.href = '/'; return; }
+  document.getElementById('page-cliente').classList.add('hidden');
+  document.getElementById('page-console').classList.remove('hidden');
+  var r = await db.from('impostazioni').select('domanda_accesso,risposta_accesso').eq('id',1).single();
+  if (!r.error && r.data) {
+    document.getElementById('console-domanda-testo').textContent = r.data.domanda_accesso;
+    window._rispostaCorretta = r.data.risposta_accesso;
+  }
+}
+async function verificaRisposta() {
+  var risposta = document.getElementById('console-risposta').value.trim();
+  if (!risposta) return;
+  if (risposta.toLowerCase() === (window._rispostaCorretta||'1510').toLowerCase()) {
+    document.getElementById('console-step-domanda').classList.add('hidden');
+    document.getElementById('console-step-password').classList.remove('hidden');
+    document.getElementById('console-risposta').value = '';
+  } else {
+    mostraMsg('msg-console-domanda','Risposta non corretta.','error');
+  }
+}
+async function verificaPasswordConsole() {
+  var pwd = document.getElementById('console-pwd').value;
+  if (pwd === ADMIN_PASSWORD) {
+    adminAutenticato = true;
+    document.getElementById('page-console').classList.add('hidden');
+    document.getElementById('page-cliente').classList.remove('hidden');
+    mostraTab('admin');
+  } else {
+    mostraMsg('msg-console-password','Password errata.','error');
+  }
+}
+
 function puntiHTML(punti) {
   var h = '<div class="punti-row">';
   for (var i = 1; i <= 10; i++) {
@@ -470,6 +539,66 @@ async function confermaEliminaCliente(clienteId, nomeCliente) {
   if (r.error) { alert('Errore: ' + r.error.message); return; }
   caricaClienti();
 }
+
+// ─── IMPOSTAZIONI ────────────────────────────────────────
+async function caricaImpostazioni() {
+var r = await db.from('impostazioni').select('*').eq('id',1).single();
+if (!r.error && r.data) {
+document.getElementById('imp-domanda').value = r.data.domanda_accesso;
+document.getElementById('imp-risposta').value = r.data.risposta_accesso;
+}
+}
+async function salvaImpostazioni() {
+var domanda = document.getElementById('imp-domanda').value.trim();
+var risposta = document.getElementById('imp-risposta').value.trim();
+if (!domanda || !risposta) { mostraMsg('msg-impostazioni','Compila entrambi i campi.','error'); return; }
+var r = await db.from('impostazioni').update({ domanda_accesso: domanda, risposta_accesso: risposta, updated_at: new Date().toISOString() }).eq('id',1);
+if (r.error) { mostraMsg('msg-impostazioni','Errore: ' + r.error.message,'error'); return; }
+mostraMsg('msg-impostazioni','Impostazioni salvate!','success');
+}
+// ─── AGGIORNA mostraSubTab per includere impostazioni ────
+var _origMostraSubTab = mostraSubTab;
+mostraSubTab = function(id) {
+var tabs = document.querySelectorAll('#sub-tabs .tab');
+var ids = ['sub-aggiungi','sub-nuovo','sub-lista','sub-impostazioni'];
+tabs.forEach(function(t,i){ t.classList.toggle('active', ids[i] === id); });
+ids.forEach(function(s){
+var el = document.getElementById(s);
+if(el){ el.classList.toggle('active', s === id); el.classList.toggle('hidden', s !== id); }
+});
+if (id === 'sub-lista') caricaClienti();
+};
+// ─── ACCESSO /console ────────────────────────────────────
+async function inizializzaConsole() {
+document.getElementById('page-cliente').classList.add('hidden');
+document.getElementById('page-console').classList.remove('hidden');
+var r = await db.from('impostazioni').select('domanda_accesso,risposta_accesso').eq('id',1).single();
+if (!r.error && r.data) {
+document.getElementById('console-domanda-testo').textContent = r.data.domanda_accesso;
+window._rispostaCorretta = r.data.risposta_accesso;
+}
+}
+async function verificaRisposta() {
+var risposta = document.getElementById('console-risposta').value.trim();
+if (!risposta) return;
+if (risposta.toLowerCase() === (window._rispostaCorretta||'1510').toLowerCase()) {
+document.getElementById('console-step-domanda').classList.add('hidden');
+document.getElementById('console-step-password').classList.remove('hidden');
+document.getElementById('console-risposta').value = '';
+} else { mostraMsg('msg-console-domanda','Risposta non corretta.','error'); }
+}
+async function verificaPasswordConsole() {
+var pwd = document.getElementById('console-pwd').value;
+if (pwd === ADMIN_PASSWORD) {
+adminAutenticato = true;
+document.getElementById('page-console').classList.add('hidden');
+document.getElementById('page-cliente').classList.remove('hidden');
+mostraTab('admin');
+caricaClienti();
+} else { mostraMsg('msg-console-password','Password errata.','error'); }
+}
+// ─── INIT ROUTE ──────────────────────────────────────────
+if (window.location.pathname === '/console') { inizializzaConsole(); }
 </script>
 </body>
 <!-- v1.4 -->
