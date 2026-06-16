@@ -591,7 +591,11 @@ if (pwd === ADMIN_PASSWORD) {
 adminAutenticato = true;
 document.getElementById('page-console').classList.add('hidden');
 document.getElementById('page-cliente').classList.remove('hidden');
-mostraTab('admin');
+// Mostra direttamente tab-admin senza passare per mostraTab
+document.getElementById('tab-cliente').classList.remove('active');
+document.getElementById('tab-cliente').classList.add('hidden');
+document.getElementById('tab-admin').classList.add('active');
+document.getElementById('tab-admin').classList.remove('hidden');
 caricaClienti();
 } else { mostraMsg('msg-console-password','Password errata.','error'); }
 }
