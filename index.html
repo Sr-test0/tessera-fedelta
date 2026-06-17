@@ -75,6 +75,12 @@ tr:hover td { background: #fafafa; }
 .cliente-risultato-item .nome { font-weight: 600; color: #333; }
 .cliente-risultato-item .email { font-size: 0.82em; color: #8B6914; margin-top: 2px; }
 .export-box { background: #faf8f5; border: 1.5px dashed #c9a227; border-radius: 10px; padding: 20px; text-align: center; margin-bottom: 16px; }
+.badge-ra { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; border-radius: 4px; padding: 2px 7px; font-size: 0.75em; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+.credenziali-box { background: #fff8e1; border: 2px solid #ffa000; border-radius: 10px; padding: 16px 18px; margin-top: 16px; }
+.credenziali-box .titolo { font-size: 1em; font-weight: 700; color: #e65100; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.credenziali-box .dati { font-size: 0.95em; color: #333; line-height: 1.9; }
+.credenziali-box .dati strong { letter-spacing: 0.5px; }
+.credenziali-box .avviso { font-size: 0.82em; color: #bf360c; margin-top: 10px; font-style: italic; border-top: 1px solid #ffd54f; padding-top: 8px; }
 </style>
 </head>
 <body>
@@ -115,6 +121,21 @@ tr:hover td { background: #fafafa; }
 <input type="password" id="login-password" placeholder="Password..." onkeydown="if(event.key==='Enter')loginCliente()" />
 <button onclick="loginCliente()" style="width:100%">Accedi</button>
 <div id="msg-login"></div>
+<div style="text-align:center;margin-top:16px;padding-top:16px;border-top:1px solid #f0f0f0">
+<p style="color:#999;font-size:0.88em;margin-bottom:10px">Non sei ancora registrato?</p>
+<button class="secondary" onclick="mostraFormRegistrazione()" style="width:100%">✨ Ottieni la tua card gratuita &mdash; 1 punto in omaggio</button>
+</div>
+</div>
+<div id="cliente-registrazione" class="card hidden">
+<h3 style="margin-bottom:6px">Crea la tua card gratuita</h3>
+<p style="color:#999;font-size:0.88em;margin-bottom:16px">Inserisci i tuoi dati per ricevere subito 1 punto di benvenuto</p>
+<input type="text" id="reg-nome" placeholder="Nome *" />
+<input type="text" id="reg-cognome" placeholder="Cognome *" />
+<input type="email" id="reg-email" placeholder="Email *" />
+<button onclick="registrazioneAutonoma()" style="width:100%">Crea la mia card</button>
+<button class="secondary" onclick="tornaAlLogin()" style="width:100%;margin-top:8px">← Torna al login</button>
+<div id="msg-registrazione"></div>
+<div id="credenziali-box-container"></div>
 </div>
 <div id="cliente-profilo" class="hidden">
 <div class="logout-bar">
@@ -579,7 +600,7 @@ function renderTabella(clienti) {
       var pwdLabel = c.password_temp
         ? '<span style="color:#e65100;font-size:0.82em">⚠ temp</span>'
         : '<span style="color:#2e7d32;font-size:0.82em">✓ impostata</span>';
-      return '<tr><td><strong>' + c.nome + '</strong><div style="font-size:0.8em;color:#999">' + c.tessera_id + '</div></td>' +
+      return '<tr><td><strong>' + c.nome + '</strong>' + (c.origine === 'autonoma' ? '<span class="badge-ra">RA</span>' : '') + '<div style="font-size:0.8em;color:#999">' + c.tessera_id + '</div></td>' +
         '<td style="font-size:0.85em">' + c.email + '</td>' +
         '<td><span class="punti-badge">' + c.punti + '</span></td>' +
         '<td style="text-align:center">' + (c.premi_riscattati||0) + '</td>' +
@@ -617,7 +638,7 @@ async function esportaXLSX() {
 
   // ── FOGLIO 1: CLIENTI ──
   var wsClientiData = [
-    ['Tessera ID','Nome','Email','Telefono','Punti Attuali','Punti Totali','Premi Ricevuti','N. Acquisti','Totale Acquistato (EUR)','Data Registrazione','Stato Password','Note']
+    ['Tessera ID','Nome','Email','Telefono','Punti Attuali','Punti Totali','Premi Ricevuti','N. Acquisti','Totale Acquistato (EUR)','Data Registrazione','Stato Password','Origine','Note']
   ];
   clienti.forEach(function(c){
     var movs = movPerCliente[c.id] || [];
@@ -630,14 +651,15 @@ async function esportaXLSX() {
       Math.round(totEur*100)/100,
       c.created_at ? c.created_at.slice(0,10) : '',
       c.password_temp ? 'Temporanea' : 'Impostata',
+      c.origine === 'autonoma' ? 'Autonoma' : 'Admin',
       c.note||''
     ]);
   });
   var wsClienti = XLSX.utils.aoa_to_sheet(wsClientiData);
   wsClienti['!cols'] = [
-    {wch:12},{wch:22},{wch:30},{wch:16},{wch:14},{wch:13},{wch:16},{wch:13},{wch:22},{wch:20},{wch:18},{wch:20}
+    {wch:12},{wch:22},{wch:30},{wch:16},{wch:14},{wch:13},{wch:16},{wch:13},{wch:22},{wch:20},{wch:18},{wch:12},{wch:20}
   ];
-  wsClienti['!autofilter'] = { ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:wsClientiData.length-1,c:11}}) };
+  wsClienti['!autofilter'] = { ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:wsClientiData.length-1,c:12}}) };
 
   // ── FOGLIO 2: MOVIMENTI ──
   var wsMovData = [
@@ -726,9 +748,50 @@ async function salvaImpostazioni() {
   mostraMsg('msg-impostazioni','Impostazioni salvate!','success');
 }
 
+// ─── REGISTRAZIONE AUTONOMA ──────────────────────────────
+function mostraFormRegistrazione() {
+document.getElementById('cliente-login').classList.add('hidden');
+document.getElementById('cliente-registrazione').classList.remove('hidden');
+}
+function tornaAlLogin() {
+document.getElementById('cliente-registrazione').classList.add('hidden');
+document.getElementById('cliente-login').classList.remove('hidden');
+['reg-nome','reg-cognome','reg-email'].forEach(function(id){ document.getElementById(id).value = ''; });
+document.getElementById('msg-registrazione').innerHTML = '';
+document.getElementById('credenziali-box-container').innerHTML = '';
+}
+async function registrazioneAutonoma() {
+var nome = document.getElementById('reg-nome').value.trim();
+var cognome = document.getElementById('reg-cognome').value.trim();
+var email = document.getElementById('reg-email').value.trim();
+if (!nome || !cognome || !email) { mostraMsg('msg-registrazione','Nome, cognome ed email sono obbligatori.','error'); return; }
+if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { mostraMsg('msg-registrazione','Inserisci un indirizzo email valido.','error'); return; }
+var nomeCompleto = nome + ' ' + cognome;
+var pwd = generaPasswordAuto(nomeCompleto);
+// Controlla se email già esistente
+var check = await db.from('clienti').select('id').eq('email', email).maybeSingle();
+if (check.data) { mostraMsg('msg-registrazione','Questa email è già registrata. Usa il form di accesso.','error'); return; }
+// Crea cliente con origine autonoma
+var r = await db.from('clienti').insert({ nome: nomeCompleto, email: email, password: pwd, password_temp: true, origine: 'autonoma' }).select().single();
+if (r.error) { mostraMsg('msg-registrazione', r.error.code === '23505' ? 'Email già registrata!' : 'Errore: ' + r.error.message, 'error'); return; }
+var nuovoCliente = r.data;
+// Aggiungi 1 punto di benvenuto
+await db.from('movimenti').insert({ cliente_id: nuovoCliente.id, tipo: 'manuale', punti: 1, nota: 'Punto di benvenuto — registrazione autonoma' });
+await db.from('clienti').update({ punti: 1, punti_totali: 1 }).eq('id', nuovoCliente.id);
+// Mostra credenziali
+document.getElementById('credenziali-box-container').innerHTML =
+'<div class="credenziali-box">' +
+'<div class="titolo">⚠️ Salva le tue credenziali di accesso</div>' +
+'<div class="dati">Email: <strong>' + email + '</strong><br>Password: <strong>' + pwd + '</strong></div>' +
+'<div class="avviso">Queste informazioni vengono mostrate una sola volta e non potranno essere recuperate in seguito. Annotale ora in un posto sicuro prima di continuare.</div>' +
+'</div>';
+document.getElementById('msg-registrazione').innerHTML = '<div class="alert alert-success">🎉 Card creata! Hai ricevuto 1 punto di benvenuto. Usa le credenziali qui sotto per accedere.</div>';
+['reg-nome','reg-cognome','reg-email'].forEach(function(id){ document.getElementById(id).value = ''; });
+}
+
 // ─── INIT ROUTE ──────────────────────────────────────────
 if (new URLSearchParams(window.location.search).has('console')) { inizializzaConsole(); }
 </script>
 </body>
-<!-- v1.5 -->
+<!-- v1.6 -->
 </html>
