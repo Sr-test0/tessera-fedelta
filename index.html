@@ -48,6 +48,7 @@ button.success:hover { background: #c8e6c9; }
 .badge-acquisto { background: #e8f5e9; color: #2e7d32; }
 .badge-premio { background: #fff8e1; color: #f57f17; }
 .badge-manuale { background: #e3f2fd; color: #1565c0; }
+.badge-benvenuto { background: #e0f2f1; color: #00695c; }
 .alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9em; }
 .alert-success { background: #e8f5e9; color: #2e7d32; border-left: 4px solid #4caf50; }
 .alert-error { background: #ffebee; color: #c62828; border-left: 4px solid #ef5350; }
@@ -439,6 +440,7 @@ async function mostraProfiloCliente(c) {
     movs.map(function(m) {
       var badge = m.tipo === 'acquisto' ? '<span class="badge badge-acquisto">Acquisto</span>' :
         m.tipo === 'premio' ? '<span class="badge badge-premio">Premio</span>' :
+        m.tipo === 'benvenuto' ? '<span class="badge badge-benvenuto">Benvenuto</span>' :
         '<span class="badge badge-manuale">Manuale</span>';
       var imp = m.importo_euro ? ' &mdash; EUR ' + Number(m.importo_euro).toFixed(2) : '';
       return '<li><div>' + badge + ' ' + (m.nota||'') + imp + '</div>' +
@@ -776,7 +778,7 @@ var r = await db.from('clienti').insert({ nome: nomeCompleto, email: email, pass
 if (r.error) { mostraMsg('msg-registrazione', r.error.code === '23505' ? 'Email già registrata!' : 'Errore: ' + r.error.message, 'error'); return; }
 var nuovoCliente = r.data;
 // Aggiungi 1 punto di benvenuto
-await db.from('movimenti').insert({ cliente_id: nuovoCliente.id, tipo: 'manuale', punti: 1, nota: 'Punto di benvenuto — registrazione autonoma' });
+await db.from('movimenti').insert({ cliente_id: nuovoCliente.id, tipo: 'benvenuto', punti: 1, nota: 'Punto di benvenuto' });
 await db.from('clienti').update({ punti: 1, punti_totali: 1 }).eq('id', nuovoCliente.id);
 // Mostra credenziali
 document.getElementById('credenziali-box-container').innerHTML =
@@ -793,5 +795,5 @@ document.getElementById('msg-registrazione').innerHTML = '<div class="alert aler
 if (new URLSearchParams(window.location.search).has('console')) { inizializzaConsole(); }
 </script>
 </body>
-<!-- v1.6 -->
+<!-- v1.7 -->
 </html>
