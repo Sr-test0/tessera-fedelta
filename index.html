@@ -226,6 +226,16 @@ tr:hover td { background: #fafafa; }
 <div id="msg-export"></div>
 </div>
 </div>
+<div id="sub-visualizza" class="panel hidden">
+<div class="card">
+<button class="secondary" onclick="tornaAllElenco()" style="margin-bottom:16px">← Torna all'elenco</button>
+<div id="admin-visualizza-tessera"></div>
+<div class="card" style="margin-top:0">
+<h4 style="margin-bottom:12px">Storico movimenti</h4>
+<ul class="storico" id="admin-visualizza-storico"></ul>
+</div>
+</div>
+</div>
 <div id="sub-impostazioni" class="panel hidden">
 <div class="card">
 <h3 style="margin-bottom:16px">Domanda di accesso</h3>
@@ -295,7 +305,7 @@ function mostraTab(id) {
   if (id === 'admin') caricaClienti();
 }
 function mostraSubTab(id) {
-  var ids = ['sub-aggiungi','sub-nuovo','sub-lista','sub-export','sub-impostazioni'];
+  var ids = ['sub-aggiungi','sub-nuovo','sub-lista','sub-export','sub-impostazioni','sub-visualizza'];
   var tabs = document.querySelectorAll('#sub-tabs .tab');
   tabs.forEach(function(t,i){ t.classList.toggle('active', ids[i] === id); });
   ids.forEach(function(s){
@@ -607,7 +617,8 @@ function renderTabella(clienti) {
         '<td><span class="punti-badge">' + c.punti + '</span></td>' +
         '<td style="text-align:center">' + (c.premi_riscattati||0) + '</td>' +
         '<td>' + pwdLabel + '</td>' +
-        '<td style="display:flex;gap:6px"><button class="secondary" style="padding:5px 10px;font-size:0.8em" onclick="apriResetPassword(' + "'" + c.id + "'" + ',decodeURIComponent(' + "'" + encodeURIComponent(c.nome) + "'" + '))">Reset pwd</button>' +
+        '<td style="display:flex;gap:6px"><button class="success" style="padding:5px 10px;font-size:0.8em" onclick="visualizzaTessera(' + "'" + c.id + "'" + ')">Visualizza</button>' +
+'<button class="secondary" style="padding:5px 10px;font-size:0.8em" onclick="apriResetPassword(' + "'" + c.id + "'" + ',decodeURIComponent(' + "'" + encodeURIComponent(c.nome) + "'" + '))">Reset pwd</button>' +
         '<button class="danger" style="padding:5px 10px;font-size:0.8em" onclick="confermaEliminaCliente(' + "'" + c.id + "'" + ',decodeURIComponent(' + "'" + encodeURIComponent(c.nome) + "'" + '))">Elimina</button></td></tr>';
     }).join('') + '</tbody></table>';
 }
@@ -791,9 +802,50 @@ document.getElementById('msg-registrazione').innerHTML = '<div class="alert aler
 ['reg-nome','reg-cognome','reg-email'].forEach(function(id){ document.getElementById(id).value = ''; });
 }
 
+// ─── ADMIN: VISUALIZZA TESSERA ──────────────────────────
+async function visualizzaTessera(clienteId) {
+  var r = await db.from('clienti').select('*').eq('id', clienteId).single();
+  if (r.error || !r.data) return;
+  var c = r.data;
+  var mv = await db.from('movimenti').select('*').eq('cliente_id', c.id).order('created_at', {ascending: false});
+  var target = c.punti < 5 ? 5 : 10;
+  var mancanti = target - c.punti;
+  document.getElementById('admin-visualizza-tessera').innerHTML =
+    '<div class="tessera">' +
+    '<div class="tessera-nome">' + c.nome + '</div>' +
+    '<div class="tessera-id">Tessera: ' + c.tessera_id + ' &mdash; ' + c.email + '</div>' +
+    '<div class="tessera-punti">' + c.punti + '</div>' +
+    '<div class="tessera-label">punti &mdash; ancora ' + mancanti + ' per ' + (target === 5 ? 'la tazza' : 'il set') + '</div>' +
+    '</div>' +
+    puntiHTML(c.punti) +
+    '<div class="info-grid" style="margin:16px 0">' +
+    '<div class="info-box"><div class="valore">' + c.punti_totali + '</div><div class="etichetta">Punti totali guadagnati</div></div>' +
+    '<div class="info-box"><div class="valore">' + (c.premi_riscattati||0) + '</div><div class="etichetta">Premi ricevuti</div></div>' +
+    '</div>';
+  var movs = mv.data || [];
+  document.getElementById('admin-visualizza-storico').innerHTML = movs.length === 0 ?
+    '<li style="color:#999;text-align:center;padding:16px">Nessun movimento</li>' :
+    movs.map(function(m) {
+      var badge = m.tipo === 'acquisto' ? '<span class="badge badge-acquisto">Acquisto</span>' :
+        m.tipo === 'premio' ? '<span class="badge badge-premio">Premio</span>' :
+        m.tipo === 'benvenuto' ? '<span class="badge badge-benvenuto">Benvenuto</span>' :
+        '<span class="badge badge-manuale">Manuale</span>';
+      var imp = m.importo_euro ? ' &mdash; EUR ' + Number(m.importo_euro).toFixed(2) : '';
+      return '<li><div>' + badge + ' ' + (m.nota||'') + imp + '</div>' +
+        '<div style="font-size:0.85em;color:#999">' + (m.punti > 0 ? '+' : '') + m.punti + 'pt &mdash; ' + formatData(m.created_at) + '</div></li>';
+    }).join('');
+  // Nascondi i tab sub e mostra il pannello visualizza
+  document.getElementById('sub-tabs').classList.add('hidden');
+  mostraSubTab('sub-visualizza');
+}
+function tornaAllElenco() {
+  document.getElementById('sub-tabs').classList.remove('hidden');
+  mostraSubTab('sub-lista');
+}
+
 // ─── INIT ROUTE ──────────────────────────────────────────
 if (new URLSearchParams(window.location.search).has('console')) { inizializzaConsole(); }
 </script>
 </body>
-<!-- v1.7 -->
+<!-- v1.8 -->
 </html>
