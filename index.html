@@ -923,114 +923,118 @@ function stampaTessera() {
   var c = clienteLoggato;
   var { jsPDF } = window.jspdf;
 
-  // Formato tessera credit card: 85.6 x 54 mm
+  // Formato tessera credit card: 85.6 x 54 mm landscape
   var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
 
-  // ── Sfondo gradiente dorato (simulato con rettangolo) ──
-  doc.setFillColor(139, 105, 20); // #8B6914 oro scuro
-  doc.rect(0, 0, 85.6, 54, 'F');
+  var W = 85.6, H = 54;
 
-  // ── Cerchio decorativo in alto a destra ──
-  doc.setFillColor(255, 255, 255, 0.08);
-  doc.setDrawColor(255, 255, 255);
-  doc.setGState(doc.GState({opacity: 0.1}));
-  doc.circle(78, 8, 16, 'F');
-  doc.setGState(doc.GState({opacity: 1}));
+  // ── Sfondo oro scuro su tutto il documento ──
+  doc.setFillColor(130, 95, 15);
+  doc.rect(0, 0, W, H, 'F');
 
-  // ── Striscia dorata chiara in basso ──
-  doc.setFillColor(201, 162, 39); // #c9a227
-  doc.rect(0, 42, 85.6, 12, 'F');
+  // ── Fascia centrale leggermente più chiara ──
+  doc.setFillColor(155, 115, 20);
+  doc.rect(0, 15, W, 24, 'F');
 
-  // ── Logo SR Art (testo) ──
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text('SR Art', 6, 9);
+  // ── Fascia bassa dorata chiara ──
+  doc.setFillColor(185, 140, 30);
+  doc.rect(0, H - 10, W, 10, 'F');
 
-  // ── Sottotitolo ──
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(5.5);
-  doc.setTextColor(255, 220, 150);
-  doc.text('Personalizzazioni Artistiche', 6, 13.5);
-
-  // ── Linea separatrice ──
-  doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(0.3);
-  doc.setGState(doc.GState({opacity: 0.4}));
-  doc.line(6, 16, 79, 16);
-  doc.setGState(doc.GState({opacity: 1}));
-
-  // ── Nome cliente ──
-  doc.setTextColor(255, 255, 255);
+  // ── HEADER: nome brand ──
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.text(c.nome.toUpperCase(), 6, 23);
+  doc.setTextColor(255, 235, 180);
+  doc.text('SR ART', 5, 8);
 
-  // ── Tessera ID ──
+  // ── HEADER: sottotitolo ──
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(255, 220, 150);
-  doc.text('N° ' + c.tessera_id, 6, 28.5);
+  doc.setFontSize(5.5);
+  doc.setTextColor(220, 190, 130);
+  doc.text('Tessera Fedelta', 5, 12.5);
 
-  // ── Punti ──
+  // ── Linea separatrice ──
+  doc.setDrawColor(200, 160, 60);
+  doc.setLineWidth(0.2);
+  doc.line(5, 14.5, W - 5, 14.5);
+
+  // ── NOME CLIENTE (grande, centrale) ──
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
+  doc.setFontSize(11);
   doc.setTextColor(255, 255, 255);
-  doc.text(String(c.punti), 6, 39);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(255, 220, 150);
-  doc.text('punti', 6 + (String(c.punti).length * 3.8) + 2, 39);
+  var nomeUp = c.nome.toUpperCase();
+  // Tronca se troppo lungo
+  if (doc.getTextWidth(nomeUp) > W - 10) {
+    doc.setFontSize(9);
+  }
+  doc.text(nomeUp, W / 2, 22, { align: 'center' });
 
-  // ── Cerchi punti (10 cerchi) ──
-  var cx = 45;
-  var cy = 32;
-  var r2 = 3.2;
-  var gap = 8;
+  // ── CODICE TESSERA ──
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(220, 190, 130);
+  doc.text(c.tessera_id, W / 2, 27, { align: 'center' });
+
+  // ── PUNTI attuali ──
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(255, 255, 255);
+  doc.text(String(c.punti) + ' / 10 punti', W / 2, 33, { align: 'center' });
+
+  // ── CERCHI: 2 righe da 5 (riga 1: 1-5, riga 2: 6-10) ──
+  var cerchioR = 2.8;
+  var gapX = 7.5;
+  var startX = (W - (5 * gapX - (gapX - cerchioR*2))) / 2 + cerchioR;
+  var row1Y = 39;
+  var row2Y = 46;
+
   for (var i = 1; i <= 10; i++) {
-    var x = cx + (i - 1) * gap;
+    var riga = i <= 5 ? 1 : 2;
+    var col = i <= 5 ? i : i - 5;
+    var cx = startX + (col - 1) * gapX;
+    var cy = riga === 1 ? row1Y : row2Y;
     var pieno = i <= c.punti;
     var isSpecial = (i === 5 || i === 10);
+
     if (pieno && isSpecial) {
-      doc.setFillColor(255, 215, 0); // oro
-      doc.setDrawColor(218, 165, 32);
+      // oro brillante
+      doc.setFillColor(255, 210, 0);
+      doc.setDrawColor(200, 160, 0);
     } else if (pieno) {
+      // bianco pieno
       doc.setFillColor(255, 255, 255);
-      doc.setDrawColor(255, 255, 255);
+      doc.setDrawColor(220, 220, 220);
     } else {
-      doc.setFillColor(100, 75, 15);
-      doc.setDrawColor(180, 140, 40);
+      // vuoto scuro
+      doc.setFillColor(100, 72, 10);
+      doc.setDrawColor(160, 120, 30);
     }
-    doc.setLineWidth(0.4);
-    doc.circle(x, cy, r2, 'FD');
-    // Numero o label dentro il cerchio
+    doc.setLineWidth(0.35);
+    doc.circle(cx, cy, cerchioR, 'FD');
+
+    // Testo dentro il cerchio
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(4.5);
+    doc.setFontSize(3.8);
     if (pieno && isSpecial) {
       doc.setTextColor(80, 50, 0);
     } else if (pieno) {
-      doc.setTextColor(139, 105, 20);
+      doc.setTextColor(130, 95, 15);
     } else {
-      doc.setTextColor(180, 140, 40);
+      doc.setTextColor(160, 120, 30);
     }
-    var lbl = (i === 5) ? '★' : (i === 10) ? '★' : String(i);
+    var lbl = (i === 5) ? 'T' : (i === 10) ? 'S' : String(i);
     var tw = doc.getTextWidth(lbl);
-    doc.text(lbl, x - tw/2, cy + 1.6);
+    doc.text(lbl, cx - tw / 2, cy + 1.4);
   }
 
-  // ── Dicitura in basso ──
+  // ── FOOTER: dicitura + sito ──
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.setTextColor(255, 255, 255);
-  doc.text('1 punto ogni €10 di acquisto', 6, 49);
-
-  // ── Website ──
   doc.setFontSize(5.5);
-  doc.setTextColor(255, 220, 150);
-  doc.text('tessera.sr-art.it', 52, 49);
+  doc.setTextColor(255, 240, 200);
+  doc.text('1 punto ogni €10 di acquisto', 5, H - 3.5);
+  doc.setTextColor(200, 170, 100);
+  doc.text('tessera.sr-art.it', W - 5, H - 3.5, { align: 'right' });
 
-  // Salva
-  var nomeFile = 'tessera-srart-' + c.nome.replace(/\s+/g,'-').toLowerCase() + '.pdf';
+  var nomeFile = 'tessera-srart-' + c.nome.replace(/\s+/g, '-').toLowerCase() + '.pdf';
   doc.save(nomeFile);
 }
 
