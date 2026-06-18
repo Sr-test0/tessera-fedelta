@@ -923,7 +923,6 @@ async function stampaTessera() {
   var c = clienteLoggato;
   var { jsPDF } = window.jspdf;
 
-  // Carica logo dinamicamente
   var logoB64 = null;
   try {
     var logoResp = await fetch('logo.png');
@@ -942,78 +941,73 @@ async function stampaTessera() {
   doc.setFillColor(253, 250, 244);
   doc.rect(0, 0, W, H, 'F');
 
-  // ── Bordo dorato esterno ──
+  // ── Doppio bordo dorato ──
   doc.setDrawColor(180, 140, 40);
   doc.setLineWidth(0.8);
   doc.rect(1.5, 1.5, W - 3, H - 3);
-
-  // ── Bordo dorato interno ──
   doc.setDrawColor(210, 170, 60);
   doc.setLineWidth(0.3);
   doc.rect(2.8, 2.8, W - 5.6, H - 5.6);
 
-  // ── Logo SR Art (12x12mm centrato) ──
+  // ── Logo grande (16x16mm centrato) ──
   if (logoB64) {
-    doc.addImage(logoB64, 'PNG', (W - 12) / 2, 3.5, 12, 12);
+    doc.addImage(logoB64, 'PNG', (W - 16) / 2, 3.5, 16, 16);
   }
 
-  // ── Titolo CARTA FEDELTA ──
+  // ── CARTA FEDELTÀ (più piccolo, con accento) ──
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
+  doc.setFontSize(7);
   doc.setTextColor(139, 105, 20);
-  doc.text('CARTA FEDELTA', W / 2, 17.5, { align: 'center' });
+  doc.text('CARTA FEDELTÀ', W / 2, 22.5, { align: 'center' });
 
   // ── Linea sottotitolo ──
   doc.setDrawColor(180, 140, 40);
   doc.setLineWidth(0.2);
-  doc.line(10, 19, W - 10, 19);
+  doc.line(10, 24, W - 10, 24);
 
-  // ── Cliente: nome ──
+  // ── N° tessera (piccolo, sopra nome, allineato a destra) ──
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6);
-  doc.setTextColor(80, 60, 10);
-  doc.text('Cliente:', 5, 22.5);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.5);
-  doc.setTextColor(40, 30, 5);
-  // Tronca nome se troppo lungo
-  var nomeLabel = c.nome;
-  if (doc.getTextWidth(nomeLabel) > 40) {
-    doc.setFontSize(5.5);
-  }
-  doc.text(nomeLabel, 17, 22.5);
-
-  // ── N° tessera (allineato a destra) ──
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(4.8);
+  doc.setFontSize(4.5);
   doc.setTextColor(160, 130, 60);
-  doc.text('N° ' + c.tessera_id, W - 4, 22.5, { align: 'right' });
+  doc.text('N° ' + c.tessera_id, W - 4, 27.5, { align: 'right' });
 
-  // ── Linea sotto nome ──
+  // ── Nome cliente centrato, font elegante (times) ──
+  doc.setFont('times', 'bold');
+  var nomeFontSize = 9;
+  doc.setFontSize(nomeFontSize);
+  // Riduci se troppo lungo
+  while (doc.getTextWidth(c.nome) > W - 20 && nomeFontSize > 6) {
+    nomeFontSize -= 0.5;
+    doc.setFontSize(nomeFontSize);
+  }
+  doc.setTextColor(40, 30, 5);
+  doc.text(c.nome, W / 2, 27.5, { align: 'center' });
+
+  // ── Linea sottile sotto nome ──
   doc.setDrawColor(160, 130, 50);
   doc.setLineWidth(0.15);
-  doc.line(17, 23.8, W - 4, 23.8);
+  doc.line(10, 29, W - 10, 29);
 
-  // ── CASELLE PUNTI ──
-  // 2 righe da 5, caselle 13x6mm con gap 1mm
-  var cW = 13, cH = 6;
-  var gapX = 1, gapY = 1.2;
-  var totalW = 5 * cW + 4 * gapX;
-  var sx = (W - totalW) / 2;
-  var row1Y = 25.5;
-  var row2Y = row1Y + cH + gapY;
+  // ── CERCHI PUNTI tondi (2 righe da 5) ──
+  // r=3.2mm, gap orizzontale tra centri = 14mm, gap riga = 7.5mm
+  // 5 cerchi: larghezza totale = 4*14 + 2*3.2 = 56+6.4 = 62.4mm → startX = (85.6-62.4)/2+3.2 = 15.2
+  var r = 3.2;
+  var stepX = 14;
+  var startCX = (W - (4 * stepX + 2 * r)) / 2 + r;
+  var row1CY = 34;
+  var row2CY = 41.5;
 
   for (var i = 1; i <= 10; i++) {
     var col = i <= 5 ? i - 1 : i - 6;
-    var by = i <= 5 ? row1Y : row2Y;
-    var bx = sx + col * (cW + gapX);
+    var cx = startCX + col * stepX;
+    var cy = i <= 5 ? row1CY : row2CY;
     var pieno = i <= c.punti;
     var isSpecial = (i === 5 || i === 10);
 
     if (isSpecial) {
       doc.setDrawColor(180, 140, 40);
-      doc.setLineWidth(0.55);
-      doc.setFillColor(pieno ? 220 : 248, pieno ? 175 : 240, pieno ? 50 : 220);
+      doc.setLineWidth(0.6);
+      doc.setFillColor(pieno ? 220 : 248, pieno ? 175 : 240, pieno ? 50 : 215);
     } else if (pieno) {
       doc.setFillColor(201, 162, 39);
       doc.setDrawColor(155, 120, 20);
@@ -1023,39 +1017,36 @@ async function stampaTessera() {
       doc.setDrawColor(195, 165, 75);
       doc.setLineWidth(0.25);
     }
-    doc.rect(bx, by, cW, cH, 'FD');
+    doc.circle(cx, cy, r, 'FD');
 
-    // Testo centrato nella casella
-    var cx = bx + cW / 2;
-    var cy = by + cH / 2 + 1.5;
+    // Testo nel cerchio
     doc.setFont('helvetica', 'bold');
     if (isSpecial) {
-      doc.setFontSize(3.8);
+      doc.setFontSize(3.5);
       doc.setTextColor(pieno ? 80 : 130, pieno ? 55 : 100, pieno ? 5 : 20);
-      doc.text(i === 5 ? 'TAZZA' : 'SET', cx, cy, { align: 'center' });
+      doc.text(i === 5 ? 'TAZZA' : 'SET', cx, cy + 1.3, { align: 'center' });
     } else {
-      doc.setFontSize(6.5);
+      doc.setFontSize(6);
       doc.setTextColor(pieno ? 255 : 170, pieno ? 255 : 140, pieno ? 255 : 50);
-      doc.text(String(i), cx, cy, { align: 'center' });
+      doc.text(String(i), cx, cy + 2.2, { align: 'center' });
     }
   }
 
   // ── Linea footer ──
-  var footerLineY = row2Y + cH + 1.5;
   doc.setDrawColor(180, 140, 40);
   doc.setLineWidth(0.2);
-  doc.line(4, footerLineY, W - 4, footerLineY);
+  doc.line(4, 46, W - 4, 46);
 
-  // ── Testi footer ──
+  // ── Testo footer ──
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(4.8);
   doc.setTextColor(80, 60, 10);
-  doc.text('Guadagni 1 punto ogni 10 euro di spesa  •  I punti non scadono mai', W / 2, footerLineY + 2.5, { align: 'center' });
+  doc.text('Guadagni 1 punto ogni 10 euro di spesa  •  I punti non scadono mai', W / 2, 48.5, { align: 'center' });
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(4.8);
   doc.setTextColor(139, 105, 20);
-  doc.text('tessera.sr-art.it', W / 2, footerLineY + 5, { align: 'center' });
+  doc.text('www.sr-art.it', W / 2, 51, { align: 'center' });
 
   doc.save('tessera-srart-' + c.nome.replace(/\s+/g, '-').toLowerCase() + '.pdf');
 }
