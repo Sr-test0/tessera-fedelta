@@ -6,6 +6,7 @@
 <title>Tessera Fedeltà SR Art</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
@@ -163,6 +164,9 @@ tr:hover td { background: #fafafa; }
 <button class="secondary" onclick="logoutCliente()" style="padding:6px 14px;font-size:0.85em">Esci</button>
 </div>
 <div id="tessera-display"></div>
+<div style="text-align:center;margin-bottom:8px">
+<button class="secondary" onclick="stampaTessera()" style="width:100%;font-size:0.95em">🖨️ Stampa la tua tessera (PDF)</button>
+</div>
 <div class="card">
 <h4 style="margin-bottom:12px">Storico movimenti</h4>
 <ul class="storico" id="storico-lista"></ul>
@@ -911,6 +915,123 @@ async function eseguiResetPassword() {
   document.getElementById('reset-email').disabled = true;
   document.getElementById('reset-tessera-id').disabled = true;
   mostraMsg('msg-reset-password','Dati verificati! Scegli la tua nuova password.','success');
+}
+
+// ─── STAMPA TESSERA PDF ─────────────────────────────────
+function stampaTessera() {
+  if (!clienteLoggato) return;
+  var c = clienteLoggato;
+  var { jsPDF } = window.jspdf;
+
+  // Formato tessera credit card: 85.6 x 54 mm
+  var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
+
+  // ── Sfondo gradiente dorato (simulato con rettangolo) ──
+  doc.setFillColor(139, 105, 20); // #8B6914 oro scuro
+  doc.rect(0, 0, 85.6, 54, 'F');
+
+  // ── Cerchio decorativo in alto a destra ──
+  doc.setFillColor(255, 255, 255, 0.08);
+  doc.setDrawColor(255, 255, 255);
+  doc.setGState(doc.GState({opacity: 0.1}));
+  doc.circle(78, 8, 16, 'F');
+  doc.setGState(doc.GState({opacity: 1}));
+
+  // ── Striscia dorata chiara in basso ──
+  doc.setFillColor(201, 162, 39); // #c9a227
+  doc.rect(0, 42, 85.6, 12, 'F');
+
+  // ── Logo SR Art (testo) ──
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('SR Art', 6, 9);
+
+  // ── Sottotitolo ──
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.5);
+  doc.setTextColor(255, 220, 150);
+  doc.text('Personalizzazioni Artistiche', 6, 13.5);
+
+  // ── Linea separatrice ──
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(0.3);
+  doc.setGState(doc.GState({opacity: 0.4}));
+  doc.line(6, 16, 79, 16);
+  doc.setGState(doc.GState({opacity: 1}));
+
+  // ── Nome cliente ──
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text(c.nome.toUpperCase(), 6, 23);
+
+  // ── Tessera ID ──
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(255, 220, 150);
+  doc.text('N° ' + c.tessera_id, 6, 28.5);
+
+  // ── Punti ──
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.setTextColor(255, 255, 255);
+  doc.text(String(c.punti), 6, 39);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(255, 220, 150);
+  doc.text('punti', 6 + (String(c.punti).length * 3.8) + 2, 39);
+
+  // ── Cerchi punti (10 cerchi) ──
+  var cx = 45;
+  var cy = 32;
+  var r2 = 3.2;
+  var gap = 8;
+  for (var i = 1; i <= 10; i++) {
+    var x = cx + (i - 1) * gap;
+    var pieno = i <= c.punti;
+    var isSpecial = (i === 5 || i === 10);
+    if (pieno && isSpecial) {
+      doc.setFillColor(255, 215, 0); // oro
+      doc.setDrawColor(218, 165, 32);
+    } else if (pieno) {
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(255, 255, 255);
+    } else {
+      doc.setFillColor(100, 75, 15);
+      doc.setDrawColor(180, 140, 40);
+    }
+    doc.setLineWidth(0.4);
+    doc.circle(x, cy, r2, 'FD');
+    // Numero o label dentro il cerchio
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(4.5);
+    if (pieno && isSpecial) {
+      doc.setTextColor(80, 50, 0);
+    } else if (pieno) {
+      doc.setTextColor(139, 105, 20);
+    } else {
+      doc.setTextColor(180, 140, 40);
+    }
+    var lbl = (i === 5) ? '★' : (i === 10) ? '★' : String(i);
+    var tw = doc.getTextWidth(lbl);
+    doc.text(lbl, x - tw/2, cy + 1.6);
+  }
+
+  // ── Dicitura in basso ──
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6);
+  doc.setTextColor(255, 255, 255);
+  doc.text('1 punto ogni €10 di acquisto', 6, 49);
+
+  // ── Website ──
+  doc.setFontSize(5.5);
+  doc.setTextColor(255, 220, 150);
+  doc.text('tessera.sr-art.it', 52, 49);
+
+  // Salva
+  var nomeFile = 'tessera-srart-' + c.nome.replace(/\s+/g,'-').toLowerCase() + '.pdf';
+  doc.save(nomeFile);
 }
 
 // ─── INIT ROUTE ──────────────────────────────────────────
