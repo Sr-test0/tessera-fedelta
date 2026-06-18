@@ -122,7 +122,10 @@ tr:hover td { background: #fafafa; }
 <input type="password" id="login-password" placeholder="Password..." onkeydown="if(event.key==='Enter')loginCliente()" />
 <button onclick="loginCliente()" style="width:100%">Accedi</button>
 <div id="msg-login"></div>
-<div style="text-align:center;margin-top:16px;padding-top:16px;border-top:1px solid #f0f0f0">
+<div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0">
+<a href="#" onclick="mostraFormResetPassword();return false;" style="color:#8B6914;font-size:0.88em;text-decoration:none">Hai dimenticato la password?</a>
+</div>
+<div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0">
 <p style="color:#999;font-size:0.88em;margin-bottom:10px">Non sei ancora registrato?</p>
 <button class="secondary" onclick="mostraFormRegistrazione()" style="width:100%">✨ Ottieni la tua card gratuita &mdash; 1 punto in omaggio</button>
 </div>
@@ -137,6 +140,22 @@ tr:hover td { background: #fafafa; }
 <button class="secondary" onclick="tornaAlLogin()" style="width:100%;margin-top:8px">← Torna al login</button>
 <div id="msg-registrazione"></div>
 <div id="credenziali-box-container"></div>
+</div>
+<div id="cliente-reset-pwd" class="card hidden">
+<h3 style="margin-bottom:6px">Recupera accesso</h3>
+<p style="color:#999;font-size:0.88em;margin-bottom:16px">Inserisci la tua email e il codice della tua tessera (es. TF-XXXXXXXX)</p>
+<input type="email" id="reset-email" placeholder="La tua email *" />
+<input type="text" id="reset-tessera-id" placeholder="Codice tessera (es. TF-XXXXXXXX) *" />
+<div id="reset-nuova-pwd-box" class="hidden">
+<hr style="margin:12px 0;border:none;border-top:1px solid #f0f0f0" />
+<p style="color:#2e7d32;font-size:0.88em;margin-bottom:12px">✓ Dati verificati. Scegli la tua nuova password.</p>
+<input type="password" id="reset-nuova-pwd" placeholder="Nuova password *" />
+<input type="password" id="reset-nuova-pwd2" placeholder="Ripeti nuova password *" />
+</div>
+<button onclick="eseguiResetPassword()" style="width:100%">Verifica e recupera</button>
+<button class="secondary" onclick="tornaAlLoginDaReset()" style="width:100%;margin-top:8px">← Torna al login</button>
+<div id="msg-reset-password"></div>
+<p style="text-align:center;margin-top:16px;font-size:0.82em;color:#999">Non hai questi dati? Scrivi a <a href="mailto:info@sr-art.it" style="color:#8B6914">info@sr-art.it</a> e ti aiuteremo a recuperare il tuo account.</p>
 </div>
 <div id="cliente-profilo" class="hidden">
 <div class="logout-bar">
@@ -841,6 +860,57 @@ async function visualizzaTessera(clienteId) {
 function tornaAllElenco() {
   document.getElementById('sub-tabs').classList.remove('hidden');
   mostraSubTab('sub-lista');
+}
+
+// ─── RECUPERO PASSWORD ──────────────────────────────────
+var _resetClienteVerificato = null;
+
+function mostraFormResetPassword() {
+  document.getElementById('cliente-login').classList.add('hidden');
+  document.getElementById('cliente-registrazione').classList.add('hidden');
+  document.getElementById('cliente-reset-pwd').classList.remove('hidden');
+  document.getElementById('reset-email').value = '';
+  document.getElementById('reset-tessera-id').value = '';
+  document.getElementById('reset-nuova-pwd-box').classList.add('hidden');
+  document.getElementById('reset-nuova-pwd').value = '';
+  document.getElementById('reset-nuova-pwd2').value = '';
+  document.getElementById('msg-reset-password').innerHTML = '';
+  _resetClienteVerificato = null;
+}
+function tornaAlLoginDaReset() {
+  document.getElementById('cliente-reset-pwd').classList.add('hidden');
+  document.getElementById('cliente-login').classList.remove('hidden');
+  _resetClienteVerificato = null;
+}
+async function eseguiResetPassword() {
+  // Se già verificato, procedi con il cambio password
+  if (_resetClienteVerificato) {
+    var p1 = document.getElementById('reset-nuova-pwd').value;
+    var p2 = document.getElementById('reset-nuova-pwd2').value;
+    if (!p1 || p1.length < 4) { mostraMsg('msg-reset-password','La password deve essere di almeno 4 caratteri.','error'); return; }
+    if (p1 !== p2) { mostraMsg('msg-reset-password','Le password non coincidono.','error'); return; }
+    var r = await db.from('clienti').update({ password: p1, password_temp: false }).eq('id', _resetClienteVerificato.id);
+    if (r.error) { mostraMsg('msg-reset-password','Errore: ' + r.error.message,'error'); return; }
+    _resetClienteVerificato = null;
+    document.getElementById('cliente-reset-pwd').classList.add('hidden');
+    document.getElementById('cliente-login').classList.remove('hidden');
+    mostraMsg('msg-login','Password aggiornata con successo! Ora puoi accedere.','success');
+    return;
+  }
+  // Prima fase: verifica email + tessera ID
+  var email = document.getElementById('reset-email').value.trim();
+  var tesseraId = document.getElementById('reset-tessera-id').value.trim().toUpperCase();
+  if (!email || !tesseraId) { mostraMsg('msg-reset-password','Inserisci email e codice tessera.','error'); return; }
+  var r = await db.from('clienti').select('*').eq('email', email).eq('tessera_id', tesseraId).maybeSingle();
+  if (r.error || !r.data) {
+    mostraMsg('msg-reset-password','Nessun account trovato con questi dati. Controlla email e codice tessera.','error');
+    return;
+  }
+  _resetClienteVerificato = r.data;
+  document.getElementById('reset-nuova-pwd-box').classList.remove('hidden');
+  document.getElementById('reset-email').disabled = true;
+  document.getElementById('reset-tessera-id').disabled = true;
+  mostraMsg('msg-reset-password','Dati verificati! Scegli la tua nuova password.','success');
 }
 
 // ─── INIT ROUTE ──────────────────────────────────────────
