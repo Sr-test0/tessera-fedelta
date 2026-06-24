@@ -410,21 +410,90 @@ function generaPasswordAuto(nome) {
   return iniziali + new Date().getFullYear();
 }
 
+// ─── HASH PASSWORD (SHA-256 Web Crypto API) ──────────────
+async function hashPassword(password) {
+var encoder = new TextEncoder();
+var data = encoder.encode(password);
+var hashBuffer = await crypto.subtle.digest('SHA-256', data);
+var hashArray = Array.from(new Uint8Array(hashBuffer));
+return hashArray.map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+}
+
+// ─── RATE LIMITING LOGIN ─────────────────────────────────
+var _LOGIN_MAX_TENTATIVI = 5;
+var _LOGIN_BLOCCO_MS = 15 * 60 * 1000;
+function checkRateLimit(email) {
+var key = 'rl_' + email.replace(/[^a-z0-9]/gi,'_');
+var stored = localStorage.getItem(key);
+if (!stored) return { bloccato: false };
+var data = JSON.parse(stored);
+var ora = Date.now();
+if (data.bloccatoFino && ora < data.bloccatoFino) {
+var minuti = Math.ceil((data.bloccatoFino - ora) / 60000);
+return { bloccato: true, minuti: minuti };
+}
+localStorage.removeItem(key);
+return { bloccato: false };
+}
+function registraLoginFallito(email) {
+var key = 'rl_' + email.replace(/[^a-z0-9]/gi,'_');
+var stored = localStorage.getItem(key);
+var data = stored ? JSON.parse(stored) : { tentativi: 0 };
+data.tentativi = (data.tentativi || 0) + 1;
+if (data.tentativi >= _LOGIN_MAX_TENTATIVI) {
+data.bloccatoFino = Date.now() + _LOGIN_BLOCCO_MS;
+}
+localStorage.setItem(key, JSON.stringify(data));
+return data.tentativi;
+}
+function resetRateLimit(email) {
+localStorage.removeItem('rl_' + email.replace(/[^a-z0-9]/gi,'_'));
+}
+
 
 // ─── LOGIN CLIENTE ────────────────────────────────────────
 async function loginCliente() {
-  var email = document.getElementById('login-email').value.trim();
-  var pwd = document.getElementById('login-password').value;
-  if (!email || !pwd) { mostraMsg('msg-login', 'Inserisci email e password.', 'error'); return; }
-  var r = await db.from('clienti').select('*').eq('email', email).single();
-  if (r.error || !r.data) { mostraMsg('msg-login', 'Email non trovata.', 'error'); return; }
-  if (r.data.password !== pwd) { mostraMsg('msg-login', 'Password errata.', 'error'); return; }
-  clienteLoggato = r.data;
-  document.getElementById('cliente-login').classList.add('hidden');
-  document.getElementById('cliente-profilo').classList.remove('hidden');
-  document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + r.data.nome + '</strong>' +
-    (r.data.password_temp ? '<span class="pass-temp-badge">⚠ password temporanea</span>' : '');
-  await mostraProfiloCliente(r.data);
+var email = document.getElementById('login-email').value.trim();
+var pwd = document.getElementById('login-password').value;
+if (!email || !pwd) { mostraMsg('msg-login', 'Inserisci email e password.', 'error'); return; }
+// Rate limiting
+var rl = checkRateLimit(email);
+if (rl.bloccato) {
+mostraMsg('msg-login', 'Troppi tentativi falliti. Riprova tra ' + rl.minuti + ' minuto/i.', 'error');
+return;
+}
+var r = await db.from('clienti').select('*').eq('email', email).single();
+if (r.error || !r.data) {
+registraLoginFallito(email);
+mostraMsg('msg-login', 'Email non trovata.', 'error');
+return;
+}
+// Supporto doppio: hash SHA-256 (nuovo) e plain text (vecchio, per migrazione graduale)
+var pwdHash = await hashPassword(pwd);
+var pwdOk = false;
+if (r.data.password === pwdHash) {
+pwdOk = true;
+} else if (r.data.password === pwd) {
+// Password ancora in chiaro: aggiorno al volo con hash
+pwdOk = true;
+await db.from('clienti').update({ password: pwdHash }).eq('id', r.data.id);
+r.data.password = pwdHash;
+}
+if (!pwdOk) {
+var tentativi = registraLoginFallito(email);
+var rimasti = _LOGIN_MAX_TENTATIVI - tentativi;
+var msg = 'Password errata.';
+if (rimasti > 0 && rimasti <= 3) msg += ' Ancora ' + rimasti + ' tentativo/i prima del blocco.';
+mostraMsg('msg-login', msg, 'error');
+return;
+}
+resetRateLimit(email);
+clienteLoggato = r.data;
+document.getElementById('cliente-login').classList.add('hidden');
+document.getElementById('cliente-profilo').classList.remove('hidden');
+document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + r.data.nome + '</strong>' +
+(r.data.password_temp ? '<span class="pass-temp-badge">⚠ password temporanea</span>' : '');
+await mostraProfiloCliente(r.data);
 }
 function logoutCliente() {
   clienteLoggato = null;
@@ -436,19 +505,20 @@ function logoutCliente() {
   document.getElementById('storico-lista').innerHTML = '';
 }
 async function cambiaPassword() {
-  if (!clienteLoggato) return;
-  var p1 = document.getElementById('nuova-pwd-1').value;
-  var p2 = document.getElementById('nuova-pwd-2').value;
-  if (!p1 || p1.length < 4) { mostraMsg('msg-cambia-pwd', 'La password deve essere di almeno 4 caratteri.', 'error'); return; }
-  if (p1 !== p2) { mostraMsg('msg-cambia-pwd', 'Le password non coincidono.', 'error'); return; }
-  var r = await db.from('clienti').update({ password: p1, password_temp: false }).eq('id', clienteLoggato.id);
-  if (r.error) { mostraMsg('msg-cambia-pwd', 'Errore: ' + r.error.message, 'error'); return; }
-  clienteLoggato.password = p1;
-  clienteLoggato.password_temp = false;
-  document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + clienteLoggato.nome + '</strong>';
-  document.getElementById('nuova-pwd-1').value = '';
-  document.getElementById('nuova-pwd-2').value = '';
-  mostraMsg('msg-cambia-pwd', 'Password aggiornata con successo!', 'success');
+if (!clienteLoggato) return;
+var p1 = document.getElementById('nuova-pwd-1').value;
+var p2 = document.getElementById('nuova-pwd-2').value;
+if (!p1 || p1.length < 4) { mostraMsg('msg-cambia-pwd', 'La password deve essere di almeno 4 caratteri.', 'error'); return; }
+if (p1 !== p2) { mostraMsg('msg-cambia-pwd', 'Le password non coincidono.', 'error'); return; }
+var pwdHash = await hashPassword(p1);
+var r = await db.from('clienti').update({ password: pwdHash, password_temp: false }).eq('id', clienteLoggato.id);
+if (r.error) { mostraMsg('msg-cambia-pwd', 'Errore: ' + r.error.message, 'error'); return; }
+clienteLoggato.password = pwdHash;
+clienteLoggato.password_temp = false;
+document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + clienteLoggato.nome + '</strong>';
+document.getElementById('nuova-pwd-1').value = '';
+document.getElementById('nuova-pwd-2').value = '';
+mostraMsg('msg-cambia-pwd', 'Password aggiornata con successo!', 'success');
 }
 
 // ─── PROFILO CLIENTE ──────────────────────────────────────
@@ -582,21 +652,22 @@ async function aggiungiPuntiManuali() {
 
 // ─── ADMIN: CREA CLIENTE ──────────────────────────────────
 async function creaCliente() {
-  var nome = document.getElementById('nuovo-nome').value.trim();
-  var email = document.getElementById('nuovo-email').value.trim();
-  var tel = document.getElementById('nuovo-tel').value.trim() || null;
-  var pwdInput = document.getElementById('nuovo-pwd').value.trim();
-  var note = document.getElementById('nuovo-note').value.trim() || null;
-  if (!nome || !email) { mostraMsg('msg-nuovo-cliente', 'Nome ed email obbligatori.', 'error'); return; }
-  var pwd = pwdInput || generaPasswordAuto(nome);
-  var r = await db.from('clienti').insert({ nome: nome, email: email, telefono: tel, note: note, password: pwd, password_temp: true }).select().single();
-  if (r.error) { mostraMsg('msg-nuovo-cliente', r.error.code === '23505' ? 'Email già registrata!' : 'Errore: ' + r.error.message, 'error'); return; }
-  mostraMsg('msg-nuovo-cliente',
-    'Tessera creata! ID: <strong>' + r.data.tessera_id + '</strong><br>' +
-    'Password temporanea: <strong style="font-size:1.1em;letter-spacing:1px">' + pwd + '</strong><br>' +
-    '<span style="font-size:0.85em;color:#666">Comunica questa password al cliente. Potrà cambiarla dopo il primo accesso.</span>',
-    'success');
-  ['nuovo-nome','nuovo-email','nuovo-tel','nuovo-pwd','nuovo-note'].forEach(function(id){ document.getElementById(id).value = ''; });
+var nome = document.getElementById('nuovo-nome').value.trim();
+var email = document.getElementById('nuovo-email').value.trim();
+var tel = document.getElementById('nuovo-tel').value.trim() || null;
+var pwdInput = document.getElementById('nuovo-pwd').value.trim();
+var note = document.getElementById('nuovo-note').value.trim() || null;
+if (!nome || !email) { mostraMsg('msg-nuovo-cliente', 'Nome ed email obbligatori.', 'error'); return; }
+var pwdPlain = pwdInput || generaPasswordAuto(nome);
+var pwdHash = await hashPassword(pwdPlain);
+var r = await db.from('clienti').insert({ nome: nome, email: email, telefono: tel, note: note, password: pwdHash, password_temp: true }).select().single();
+if (r.error) { mostraMsg('msg-nuovo-cliente', r.error.code === '23505' ? 'Email già registrata!' : 'Errore: ' + r.error.message, 'error'); return; }
+mostraMsg('msg-nuovo-cliente',
+'Tessera creata! ID: <strong>' + r.data.tessera_id + '</strong><br>' +
+'Password temporanea: <strong style="font-size:1.1em;letter-spacing:1px">' + pwdPlain + '</strong><br>' +
+'<span style="font-size:0.85em;color:#666">Comunica questa password al cliente. Potrà cambiarla dopo il primo accesso.</span>',
+'success');
+['nuovo-nome','nuovo-email','nuovo-tel','nuovo-pwd','nuovo-note'].forEach(function(id){ document.getElementById(id).value = ''; });
 }
 
 // ─── ADMIN: RESET PASSWORD ────────────────────────────────
@@ -608,12 +679,13 @@ function apriResetPassword(clienteId, nomeCliente) {
   document.getElementById('modal-reset-pwd').classList.remove('hidden');
 }
 async function confermaResetPassword() {
-  var nuovaPwd = document.getElementById('reset-pwd-input').value.trim();
-  if (!nuovaPwd || nuovaPwd.length < 4) { mostraMsg('msg-reset-pwd', 'Password di almeno 4 caratteri.', 'error'); return; }
-  var r = await db.from('clienti').update({ password: nuovaPwd, password_temp: true }).eq('id', resetPwdClienteId);
-  if (r.error) { mostraMsg('msg-reset-pwd', 'Errore: ' + r.error.message, 'error'); return; }
-  document.getElementById('modal-reset-pwd').classList.add('hidden');
-  caricaClienti();
+var nuovaPwd = document.getElementById('reset-pwd-input').value.trim();
+if (!nuovaPwd || nuovaPwd.length < 4) { mostraMsg('msg-reset-pwd', 'Password di almeno 4 caratteri.', 'error'); return; }
+var pwdHash = await hashPassword(nuovaPwd);
+var r = await db.from('clienti').update({ password: pwdHash, password_temp: true }).eq('id', resetPwdClienteId);
+if (r.error) { mostraMsg('msg-reset-pwd', 'Errore: ' + r.error.message, 'error'); return; }
+document.getElementById('modal-reset-pwd').classList.add('hidden');
+caricaClienti();
 }
 
 // ─── ADMIN: ELENCO CLIENTI ────────────────────────────────
@@ -803,22 +875,19 @@ var email = document.getElementById('reg-email').value.trim();
 if (!nome || !cognome || !email) { mostraMsg('msg-registrazione','Nome, cognome ed email sono obbligatori.','error'); return; }
 if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { mostraMsg('msg-registrazione','Inserisci un indirizzo email valido.','error'); return; }
 var nomeCompleto = nome + ' ' + cognome;
-var pwd = generaPasswordAuto(nomeCompleto);
-// Controlla se email già esistente
+var pwdPlain = generaPasswordAuto(nomeCompleto);
+var pwdHash = await hashPassword(pwdPlain);
 var check = await db.from('clienti').select('id').eq('email', email).maybeSingle();
 if (check.data) { mostraMsg('msg-registrazione','Questa email è già registrata. Usa il form di accesso.','error'); return; }
-// Crea cliente con origine autonoma
-var r = await db.from('clienti').insert({ nome: nomeCompleto, email: email, password: pwd, password_temp: true, origine: 'autonoma' }).select().single();
+var r = await db.from('clienti').insert({ nome: nomeCompleto, email: email, password: pwdHash, password_temp: true, origine: 'autonoma' }).select().single();
 if (r.error) { mostraMsg('msg-registrazione', r.error.code === '23505' ? 'Email già registrata!' : 'Errore: ' + r.error.message, 'error'); return; }
 var nuovoCliente = r.data;
-// Aggiungi 1 punto di benvenuto
 await db.from('movimenti').insert({ cliente_id: nuovoCliente.id, tipo: 'benvenuto', punti: 1, nota: 'Punto di benvenuto' });
 await db.from('clienti').update({ punti: 1, punti_totali: 1 }).eq('id', nuovoCliente.id);
-// Mostra credenziali
 document.getElementById('credenziali-box-container').innerHTML =
 '<div class="credenziali-box">' +
 '<div class="titolo">⚠️ Salva le tue credenziali di accesso</div>' +
-'<div class="dati">Email: <strong>' + email + '</strong><br>Password: <strong>' + pwd + '</strong></div>' +
+'<div class="dati">Email: <strong>' + email + '</strong><br>Password: <strong>' + pwdPlain + '</strong></div>' +
 '<div class="avviso">Queste informazioni vengono mostrate una sola volta e non potranno essere recuperate in seguito. Annotale ora in un posto sicuro prima di continuare.</div>' +
 '</div>';
 document.getElementById('msg-registrazione').innerHTML = '<div class="alert alert-success">🎉 Card creata! Hai ricevuto 1 punto di benvenuto. Usa le credenziali qui sotto per accedere.</div>';
@@ -887,34 +956,33 @@ function tornaAlLoginDaReset() {
   _resetClienteVerificato = null;
 }
 async function eseguiResetPassword() {
-  // Se già verificato, procedi con il cambio password
-  if (_resetClienteVerificato) {
-    var p1 = document.getElementById('reset-nuova-pwd').value;
-    var p2 = document.getElementById('reset-nuova-pwd2').value;
-    if (!p1 || p1.length < 4) { mostraMsg('msg-reset-password','La password deve essere di almeno 4 caratteri.','error'); return; }
-    if (p1 !== p2) { mostraMsg('msg-reset-password','Le password non coincidono.','error'); return; }
-    var r = await db.from('clienti').update({ password: p1, password_temp: false }).eq('id', _resetClienteVerificato.id);
-    if (r.error) { mostraMsg('msg-reset-password','Errore: ' + r.error.message,'error'); return; }
-    _resetClienteVerificato = null;
-    document.getElementById('cliente-reset-pwd').classList.add('hidden');
-    document.getElementById('cliente-login').classList.remove('hidden');
-    mostraMsg('msg-login','Password aggiornata con successo! Ora puoi accedere.','success');
-    return;
-  }
-  // Prima fase: verifica email + tessera ID
-  var email = document.getElementById('reset-email').value.trim();
-  var tesseraId = document.getElementById('reset-tessera-id').value.trim().toUpperCase();
-  if (!email || !tesseraId) { mostraMsg('msg-reset-password','Inserisci email e codice tessera.','error'); return; }
-  var r = await db.from('clienti').select('*').eq('email', email).eq('tessera_id', tesseraId).maybeSingle();
-  if (r.error || !r.data) {
-    mostraMsg('msg-reset-password','Nessun account trovato con questi dati. Controlla email e codice tessera.','error');
-    return;
-  }
-  _resetClienteVerificato = r.data;
-  document.getElementById('reset-nuova-pwd-box').classList.remove('hidden');
-  document.getElementById('reset-email').disabled = true;
-  document.getElementById('reset-tessera-id').disabled = true;
-  mostraMsg('msg-reset-password','Dati verificati! Scegli la tua nuova password.','success');
+if (_resetClienteVerificato) {
+var p1 = document.getElementById('reset-nuova-pwd').value;
+var p2 = document.getElementById('reset-nuova-pwd2').value;
+if (!p1 || p1.length < 4) { mostraMsg('msg-reset-password','La password deve essere di almeno 4 caratteri.','error'); return; }
+if (p1 !== p2) { mostraMsg('msg-reset-password','Le password non coincidono.','error'); return; }
+var pwdHash = await hashPassword(p1);
+var r = await db.from('clienti').update({ password: pwdHash, password_temp: false }).eq('id', _resetClienteVerificato.id);
+if (r.error) { mostraMsg('msg-reset-password','Errore: ' + r.error.message,'error'); return; }
+_resetClienteVerificato = null;
+document.getElementById('cliente-reset-pwd').classList.add('hidden');
+document.getElementById('cliente-login').classList.remove('hidden');
+mostraMsg('msg-login','Password aggiornata con successo! Ora puoi accedere.','success');
+return;
+}
+var email = document.getElementById('reset-email').value.trim();
+var tesseraId = document.getElementById('reset-tessera-id').value.trim().toUpperCase();
+if (!email || !tesseraId) { mostraMsg('msg-reset-password','Inserisci email e codice tessera.','error'); return; }
+var r = await db.from('clienti').select('*').eq('email', email).eq('tessera_id', tesseraId).maybeSingle();
+if (r.error || !r.data) {
+mostraMsg('msg-reset-password','Nessun account trovato con questi dati. Controlla email e codice tessera.','error');
+return;
+}
+_resetClienteVerificato = r.data;
+document.getElementById('reset-nuova-pwd-box').classList.remove('hidden');
+document.getElementById('reset-email').disabled = true;
+document.getElementById('reset-tessera-id').disabled = true;
+mostraMsg('msg-reset-password','Dati verificati! Scegli la tua nuova password.','success');
 }
 
 // ─── STAMPA TESSERA PDF ─────────────────────────────────
@@ -1055,5 +1123,5 @@ async function stampaTessera() {
 if (new URLSearchParams(window.location.search).has('console')) { inizializzaConsole(); }
 </script>
 </body>
-<!-- v1.8 -->
+<!-- v1.9 -->
 </html>
