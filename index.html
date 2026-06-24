@@ -202,6 +202,8 @@ tr:hover td { background: #fafafa; }
 <div id="admin-cliente-info" class="hidden">
 <div id="admin-tessera-mini"></div>
 <input type="number" id="importo-euro" placeholder="Importo ordine in euro" min="0" step="0.01" />
+<label style="font-size:0.85em;color:#666;display:block;margin-bottom:4px;margin-top:-4px">Data acquisto</label>
+<input type="date" id="data-acquisto" style="margin-bottom:12px" />
 <input type="text" id="ordine-id" placeholder="ID ordine (opzionale)" />
 <textarea id="nota-acquisto" placeholder="Note (opzionale)" rows="2"></textarea>
 <div class="btn-row">
@@ -552,32 +554,95 @@ mostraMsg('msg-cambia-pwd', 'Password aggiornata con successo!', 'success');
 
 // ─── PROFILO CLIENTE ──────────────────────────────────────
 async function mostraProfiloCliente(c) {
-  var mv = await db.from('movimenti').select('*').eq('cliente_id', c.id).order('created_at', {ascending: false}).limit(20);
-  var target = c.punti < 5 ? 5 : 10;
-  var mancanti = target - c.punti;
-  document.getElementById('tessera-display').innerHTML =
-    '<div class="tessera">' +
-    '<div class="tessera-nome">' + c.nome + '</div>' +
-    '<div class="tessera-id">Tessera: ' + c.tessera_id + '</div>' +
-    '<div class="tessera-punti">' + c.punti + '</div>' +
-    '<div class="tessera-label">punti &mdash; ancora ' + mancanti + ' per ' + (target === 5 ? 'la tazza' : 'il set') + '</div>' +
-    '</div>' + puntiHTML(c.punti) +
-    '<div class="info-grid" style="margin:16px 0">' +
-    '<div class="info-box"><div class="valore">' + c.punti_totali + '</div><div class="etichetta">Punti totali guadagnati</div></div>' +
-    '<div class="info-box"><div class="valore">' + (c.premi_riscattati||0) + '</div><div class="etichetta">Premi ricevuti</div></div>' +
-    '</div>';
-  var movs = mv.data || [];
-  document.getElementById('storico-lista').innerHTML = movs.length === 0 ?
-    '<li style="color:#999;text-align:center;padding:16px">Nessun movimento</li>' :
-    movs.map(function(m) {
-      var badge = m.tipo === 'acquisto' ? '<span class="badge badge-acquisto">Acquisto</span>' :
-        m.tipo === 'premio' ? '<span class="badge badge-premio">Premio</span>' :
-        m.tipo === 'benvenuto' ? '<span class="badge badge-benvenuto">Benvenuto</span>' :
-        '<span class="badge badge-manuale">Manuale</span>';
-      var imp = m.importo_euro ? ' &mdash; EUR ' + Number(m.importo_euro).toFixed(2) : '';
-      return '<li><div>' + badge + ' ' + (m.nota||'') + imp + '</div>' +
-        '<div style="font-size:0.85em;color:#999">' + (m.punti > 0 ? '+' : '') + m.punti + 'pt &mdash; ' + formatData(m.created_at) + '</div></li>';
-    }).join('');
+var mv = await db.from('movimenti').select('*').eq('cliente_id', c.id).order('created_at', {ascending: false}).limit(20);
+var target = c.punti < 5 ? 5 : 10;
+var mancanti = target - c.punti;
+
+// Blocco premio
+var premioHTML = '';
+if (c.punti >= 10) {
+premioHTML = '<div class="card" style="border:2px solid #c9a227;text-align:center;padding:20px">' +
+'<div style="font-size:1.8em;margin-bottom:6px">🎁</div>' +
+'<h4 style="color:#8B6914;margin-bottom:8px">Hai diritto a un premio!</h4>' +
+'<p style="font-size:0.88em;color:#666;margin-bottom:14px">Scegli il premio che vuoi riscattare:</p>' +
+'<select id="scelta-premio" style="margin-bottom:12px">' +
+'<option value="10">🏆 Premio 10 punti — Set 3 pezzi (azzera tutto)</option>' +
+'<option value="5">☕ Premio 5 punti — Tazza (rimangono ' + (c.punti - 5) + ' punti)</option>' +
+'</select>' +
+'<button onclick="richiediPremio()" style="width:100%;font-size:1em;padding:12px">Riscatta premio</button>' +
+'</div>';
+} else if (c.punti >= 5) {
+premioHTML = '<div class="card" style="border:2px solid #c9a227;text-align:center;padding:20px">' +
+'<div style="font-size:1.8em;margin-bottom:6px">☕</div>' +
+'<h4 style="color:#8B6914;margin-bottom:8px">Hai diritto alla tazza!</h4>' +
+'<p style="font-size:0.88em;color:#666;margin-bottom:14px">Hai raggiunto 5 punti. Vuoi riscattare la tua tazza? Ti rimarranno ' + (c.punti - 5) + ' punti.</p>' +
+'<button onclick="richiediPremio()" style="width:100%;font-size:1em;padding:12px">☕ Riscatta tazza</button>' +
+'</div>';
+} else {
+var mancano5 = 5 - c.punti;
+premioHTML = '<div class="card" style="background:#fafafa;text-align:center;padding:16px">' +
+'<button disabled style="width:100%;opacity:0.4;cursor:not-allowed;font-size:0.95em">🎁 Riscatta premio (ancora ' + mancano5 + ' punt' + (mancano5===1?'o':'i') + ' al prossimo)</button>' +
+'</div>';
+}
+
+document.getElementById('tessera-display').innerHTML =
+'<div class="tessera">' +
+'<div class="tessera-nome">' + c.nome + '</div>' +
+'<div class="tessera-id">Tessera: ' + c.tessera_id + '</div>' +
+'<div class="tessera-punti">' + c.punti + '</div>' +
+'<div class="tessera-label">punti' + (c.punti < 5 ? ' &mdash; ancora ' + mancanti + ' per la tazza' : c.punti < 10 ? ' &mdash; ancora ' + mancanti + ' per il set' : ' &mdash; premio disponibile!') + '</div>' +
+'</div>' + puntiHTML(c.punti) +
+'<div class="info-grid" style="margin:16px 0">' +
+'<div class="info-box"><div class="valore">' + c.punti_totali + '</div><div class="etichetta">Punti totali guadagnati</div></div>' +
+'<div class="info-box"><div class="valore">' + (c.premi_riscattati||0) + '</div><div class="etichetta">Premi ricevuti</div></div>' +
+'</div>' + premioHTML;
+
+var movs = mv.data || [];
+document.getElementById('storico-lista').innerHTML = movs.length === 0 ?
+'<li style="color:#999;text-align:center;padding:16px">Nessun movimento</li>' :
+movs.map(function(m) {
+var badge = m.tipo === 'acquisto' ? '<span class="badge badge-acquisto">Acquisto</span>' :
+m.tipo === 'premio' ? '<span class="badge badge-premio">Premio</span>' :
+m.tipo === 'benvenuto' ? '<span class="badge badge-benvenuto">Benvenuto</span>' :
+'<span class="badge badge-manuale">Manuale</span>';
+var imp = m.importo_euro ? ' &mdash; EUR ' + Number(m.importo_euro).toFixed(2) : '';
+return '<li><div>' + badge + ' ' + (m.nota||'') + imp + '</div>' +
+'<div style="font-size:0.85em;color:#999">' + (m.punti > 0 ? '+' : '') + m.punti + 'pt &mdash; ' + formatData(m.created_at) + '</div></li>';
+}).join('');
+}
+
+// ─── RICHIEDI PREMIO (lato cliente) ────────────────────────
+async function richiediPremio() {
+if (!clienteLoggato) return;
+var punti = clienteLoggato.punti;
+var sceltaEl = document.getElementById('scelta-premio');
+var puntiPremio = punti >= 10 && sceltaEl ? parseInt(sceltaEl.value) : 5;
+if (punti < 5) { return; }
+if (puntiPremio === 10 && punti < 10) { puntiPremio = 5; }
+var nomePremio = puntiPremio === 10 ? 'Set 3 pezzi' : 'Tazza';
+if (!confirm('Confermi il riscatto: ' + nomePremio + '?
+' +
+(puntiPremio === 10 ? 'I tuoi punti verranno azzerati.' : 'Verranno scalati 5 punti. Ne rimarranno ' + (punti - 5) + '.'))) return;
+var nuoviPunti = punti - puntiPremio;
+var r1 = await db.from('movimenti').insert({
+cliente_id: clienteLoggato.id,
+tipo: 'premio',
+punti: -puntiPremio,
+nota: 'Premio riscattato: ' + nomePremio
+});
+if (r1.error) { alert('Errore: ' + r1.error.message); return; }
+var r2 = await db.from('clienti').update({
+punti: nuoviPunti,
+premi_riscattati: (clienteLoggato.premi_riscattati || 0) + 1
+}).eq('id', clienteLoggato.id);
+if (r2.error) { alert('Errore: ' + r2.error.message); return; }
+clienteLoggato.punti = nuoviPunti;
+clienteLoggato.premi_riscattati = (clienteLoggato.premi_riscattati || 0) + 1;
+document.getElementById('modal-premio-text').textContent =
+'Hai riscattato: ' + nomePremio + '! ' +
+(nuoviPunti > 0 ? 'Hai ancora ' + nuoviPunti + ' punto/i.' : 'Continua a collezionare punti per il prossimo premio!');
+document.getElementById('modal-premio').classList.remove('hidden');
+await mostraProfiloCliente(clienteLoggato);
 }
 
 // ─── ADMIN: CERCA CLIENTE (nome/cognome/email) ────────────
@@ -634,34 +699,44 @@ function selezionaClienteAdmin(c) {
     '</div>' + puntiHTML(c.punti);
 }
 function resetCercaAdmin() {
-  clienteAdminCorrente = null;
-  document.getElementById('admin-cerca-query').value = '';
-  document.getElementById('admin-risultati-lista').classList.add('hidden');
-  document.getElementById('admin-cliente-info').classList.add('hidden');
-  document.getElementById('importo-euro').value = '';
-  document.getElementById('ordine-id').value = '';
-  document.getElementById('nota-acquisto').value = '';
+clienteAdminCorrente = null;
+document.getElementById('admin-cerca-query').value = '';
+document.getElementById('admin-risultati-lista').classList.add('hidden');
+document.getElementById('admin-cliente-info').classList.add('hidden');
+document.getElementById('importo-euro').value = '';
+document.getElementById('data-acquisto').value = '';
+document.getElementById('ordine-id').value = '';
+document.getElementById('nota-acquisto').value = '';
 }
 
 async function aggiungiPunti() {
-  if (!clienteAdminCorrente) return;
-  var importo = parseFloat(document.getElementById('importo-euro').value);
-  if (!importo || importo <= 0) { mostraMsg('msg-admin-punti', 'Inserisci importo valido.', 'error'); return; }
-  var ordineId = document.getElementById('ordine-id').value.trim() || null;
-  var nota = document.getElementById('nota-acquisto').value.trim() || null;
-  var r = await db.rpc('aggiungi_punti', { p_cliente_id: clienteAdminCorrente.id, p_importo: importo, p_ordine_id: ordineId, p_nota: nota });
-  if (r.error) { mostraMsg('msg-admin-punti', 'Errore: ' + r.error.message, 'error'); return; }
-  var res = r.data;
-  if (res.premi_vinti > 0) {
-    document.getElementById('modal-premio-text').textContent = clienteAdminCorrente.nome + ' ha vinto ' + res.premi_vinti + ' premio/i! Punti azzerati e ripartiti.';
-    document.getElementById('modal-premio').classList.remove('hidden');
-  }
-  mostraMsg('msg-admin-punti', '+' + res.punti_guadagnati + ' punti per ' + clienteAdminCorrente.nome + (res.premi_vinti > 0 ? ' — PREMIO SBLOCCATO!' : ''), 'success');
-  document.getElementById('importo-euro').value = '';
-  document.getElementById('ordine-id').value = '';
-  document.getElementById('nota-acquisto').value = '';
-  var aggiornato = await db.from('clienti').select('*').eq('id', clienteAdminCorrente.id).single();
-  if (!aggiornato.error) selezionaClienteAdmin(aggiornato.data);
+if (!clienteAdminCorrente) return;
+var importo = parseFloat(document.getElementById('importo-euro').value);
+if (!importo || importo <= 0) { mostraMsg('msg-admin-punti', 'Inserisci importo valido.', 'error'); return; }
+var ordineId = document.getElementById('ordine-id').value.trim() || null;
+var nota = document.getElementById('nota-acquisto').value.trim() || null;
+var dataAcquisto = document.getElementById('data-acquisto').value || null;
+var r = await db.rpc('aggiungi_punti', { p_cliente_id: clienteAdminCorrente.id, p_importo: importo, p_ordine_id: ordineId, p_nota: nota });
+if (r.error) { mostraMsg('msg-admin-punti', 'Errore: ' + r.error.message, 'error'); return; }
+var res = r.data;
+// Se c'è una data personalizzata, aggiorna il movimento appena creato
+if (dataAcquisto) {
+var mvRecente = await db.from('movimenti').select('id').eq('cliente_id', clienteAdminCorrente.id).eq('tipo','acquisto').order('created_at',{ascending:false}).limit(1).single();
+if (!mvRecente.error && mvRecente.data) {
+await db.from('movimenti').update({ created_at: dataAcquisto + 'T12:00:00.000Z' }).eq('id', mvRecente.data.id);
+}
+}
+if (res.premi_vinti > 0) {
+document.getElementById('modal-premio-text').textContent = clienteAdminCorrente.nome + ' ha vinto ' + res.premi_vinti + ' premio/i! Punti azzerati e ripartiti.';
+document.getElementById('modal-premio').classList.remove('hidden');
+}
+mostraMsg('msg-admin-punti', '+' + res.punti_guadagnati + ' punti per ' + clienteAdminCorrente.nome + (res.premi_vinti > 0 ? ' — PREMIO SBLOCCATO!' : ''), 'success');
+document.getElementById('importo-euro').value = '';
+document.getElementById('data-acquisto').value = '';
+document.getElementById('ordine-id').value = '';
+document.getElementById('nota-acquisto').value = '';
+var aggiornato = await db.from('clienti').select('*').eq('id', clienteAdminCorrente.id).single();
+if (!aggiornato.error) selezionaClienteAdmin(aggiornato.data);
 }
 async function aggiungiPuntiManuali() {
   if (!clienteAdminCorrente) return;
@@ -729,22 +804,32 @@ function filtraClienti() {
   renderTabella(tuttiClienti.filter(function(c){ return c.nome.toLowerCase().includes(q) || c.email.toLowerCase().includes(q); }));
 }
 function renderTabella(clienti) {
-  if (!clienti.length) { document.getElementById('tabella-clienti').innerHTML = '<p style="color:#999;text-align:center;padding:16px">Nessun cliente</p>'; return; }
-  document.getElementById('tabella-clienti').innerHTML =
-    '<table><thead><tr><th>Nome</th><th>Email</th><th>Punti</th><th>Premi</th><th>Password</th><th>Azioni</th></tr></thead><tbody>' +
-    clienti.map(function(c) {
-      var pwdLabel = c.password_temp
-        ? '<span style="color:#e65100;font-size:0.82em">⚠ temp</span>'
-        : '<span style="color:#2e7d32;font-size:0.82em">✓ impostata</span>';
-      return '<tr><td><strong>' + c.nome + '</strong>' + (c.origine === 'autonoma' ? '<span class="badge-ra">RA</span>' : '') + '<div style="font-size:0.8em;color:#999">' + c.tessera_id + '</div></td>' +
-        '<td style="font-size:0.85em">' + c.email + '</td>' +
-        '<td><span class="punti-badge">' + c.punti + '</span></td>' +
-        '<td style="text-align:center">' + (c.premi_riscattati||0) + '</td>' +
-        '<td>' + pwdLabel + '</td>' +
-        '<td style="display:flex;gap:6px"><button class="success" style="padding:5px 10px;font-size:0.8em" onclick="visualizzaTessera(' + "'" + c.id + "'" + ')">Visualizza</button>' +
+if (!clienti.length) { document.getElementById('tabella-clienti').innerHTML = '<p style="color:#999;text-align:center;padding:16px">Nessun cliente</p>'; return; }
+document.getElementById('tabella-clienti').innerHTML =
+'<table><thead><tr><th>Nome</th><th>Email</th><th>Punti</th><th>Premi</th><th>Password</th><th>Azioni</th></tr></thead><tbody>' +
+clienti.map(function(c) {
+var pwdLabel = c.password_temp
+? '<span style="color:#e65100;font-size:0.82em">⚠ temp</span>'
+: '<span style="color:#2e7d32;font-size:0.82em">✓ impostata</span>';
+return '<tr><td><strong>' + c.nome + '</strong>' + (c.origine === 'autonoma' ? '<span class="badge-ra">RA</span>' : '') + '<div style="font-size:0.8em;color:#999">' + c.tessera_id + '</div></td>' +
+'<td style="font-size:0.85em">' + c.email + '</td>' +
+'<td><span class="punti-badge">' + c.punti + '</span></td>' +
+'<td style="text-align:center">' + (c.premi_riscattati||0) + '</td>' +
+'<td>' + pwdLabel + '</td>' +
+'<td style="display:flex;gap:6px;flex-wrap:wrap">' +
+'<button class="success" style="padding:5px 10px;font-size:0.8em" onclick="visualizzaTessera(' + "'" + c.id + "'" + ')">Visualizza</button>' +
+'<button style="padding:5px 10px;font-size:0.8em;background:#8B6914" onclick="aggiungiPuntiDaElenco(' + "'" + c.id + "'" + ')">+ Punti</button>' +
 '<button class="secondary" style="padding:5px 10px;font-size:0.8em" onclick="apriResetPassword(' + "'" + c.id + "'" + ',decodeURIComponent(' + "'" + encodeURIComponent(c.nome) + "'" + '))">Reset pwd</button>' +
-        '<button class="danger" style="padding:5px 10px;font-size:0.8em" onclick="confermaEliminaCliente(' + "'" + c.id + "'" + ',decodeURIComponent(' + "'" + encodeURIComponent(c.nome) + "'" + '))">Elimina</button></td></tr>';
-    }).join('') + '</tbody></table>';
+'<button class="danger" style="padding:5px 10px;font-size:0.8em" onclick="confermaEliminaCliente(' + "'" + c.id + "'" + ',decodeURIComponent(' + "'" + encodeURIComponent(c.nome) + "'" + '))">Elimina</button></td></tr>';
+}).join('') + '</tbody></table>';
+}
+
+async function aggiungiPuntiDaElenco(clienteId) {
+var r = await db.from('clienti').select('*').eq('id', clienteId).single();
+if (r.error || !r.data) return;
+selezionaClienteAdmin(r.data);
+mostraSubTab('sub-aggiungi');
+document.getElementById('admin-risultati-lista').classList.add('hidden');
 }
 
 // ─── ADMIN: ELIMINA CLIENTE ───────────────────────────────
@@ -907,7 +992,12 @@ var nomeCompleto = nome + ' ' + cognome;
 var pwdPlain = generaPasswordAuto(nomeCompleto);
 var pwdHash = await hashPassword(pwdPlain);
 var check = await db.from('clienti').select('id').eq('email', email).maybeSingle();
-if (check.data) { mostraMsg('msg-registrazione','Questa email è già registrata. Usa il form di accesso.','error'); return; }
+if (check.data) {
+document.getElementById('msg-registrazione').innerHTML =
+'<div class="alert alert-error">Questa email è già registrata con una tessera SR Art.<br><br>' +
+'<button onclick="tornaAlLogin();mostraFormResetPassword();" style="width:100%;margin-top:4px">🔑 Recupera la tua password</button></div>';
+return;
+}
 var r = await db.from('clienti').insert({ nome: nomeCompleto, email: email, password: pwdHash, password_temp: true, origine: 'autonoma' }).select().single();
 if (r.error) { mostraMsg('msg-registrazione', r.error.code === '23505' ? 'Email già registrata!' : 'Errore: ' + r.error.message, 'error'); return; }
 var nuovoCliente = r.data;
@@ -1206,5 +1296,5 @@ document.addEventListener('click', function() {
 })();
 </script>
 </body>
-<!-- v2.0 -->
+<!-- v2.1 -->
 </html>
