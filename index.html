@@ -183,6 +183,7 @@ tr:hover td { background: #fafafa; }
 <!-- TAB ADMIN -->
 <div id="tab-admin" class="panel hidden">
 <div id="notifiche-admin" style="margin-bottom:12px;"></div>
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="secondary" onclick="logoutAdmin()" style="padding:6px 14px;font-size:0.85em">Esci dal pannello</button></div>
 <div class="tabs" id="sub-tabs">
 <div class="tab active" onclick="mostraSubTab('sub-aggiungi')">Aggiungi Punti</div>
 <div class="tab" onclick="mostraSubTab('sub-nuovo')">Nuovo Cliente</div>
@@ -537,6 +538,16 @@ document.getElementById('login-password').value = '';
 document.getElementById('tessera-display').innerHTML = '';
 document.getElementById('storico-lista').innerHTML = '';
 }
+function logoutAdmin() {
+  adminAutenticato = false;
+  cancellaSessione('admin');
+  document.getElementById('tab-admin').classList.remove('active');
+  document.getElementById('tab-admin').classList.add('hidden');
+  document.getElementById('tab-cliente').classList.remove('hidden');
+  document.getElementById('page-console').classList.remove('hidden');
+  document.getElementById('page-cliente').classList.add('hidden');
+  document.getElementById('console-password').value = '';
+}
 async function cambiaPassword() {
 if (!clienteLoggato) return;
 var p1 = document.getElementById('nuova-pwd-1').value;
@@ -622,7 +633,7 @@ var puntiPremio = punti >= 10 && sceltaEl ? parseInt(sceltaEl.value) : 5;
 if (punti < 5) { return; }
 if (puntiPremio === 10 && punti < 10) { puntiPremio = 5; }
 var nomePremio = puntiPremio === 10 ? 'Set 3 pezzi' : 'Tazza';
-if (!confirm('Confermi il riscatto: ' + nomePremio + '? ' + (puntiPremio === 10 ? 'I tuoi punti verranno azzerati.' : 'Verranno scalati 5 punti. Ne rimarranno ' + (punti - 5) + '.'))) return;
+if (!confirm('Confermi il riscatto: ' + nomePremio + '? ' + (puntiPremio === 10 ? 'Verranno scalati 10 punti. Ne rimarranno ' + (punti - 10) + '.' : 'Verranno scalati 5 punti. Ne rimarranno ' + (punti - 5) + '.'))) return;
 var nuoviPunti = punti - puntiPremio;
 var r1 = await db.from('movimenti').insert({
 cliente_id: clienteLoggato.id,
