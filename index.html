@@ -182,6 +182,7 @@ tr:hover td { background: #fafafa; }
 </div>
 <!-- TAB ADMIN -->
 <div id="tab-admin" class="panel hidden">
+<div id="notifiche-admin" style="margin-bottom:12px;"></div>
 <div class="tabs" id="sub-tabs">
 <div class="tab active" onclick="mostraSubTab('sub-aggiungi')">Aggiungi Punti</div>
 <div class="tab" onclick="mostraSubTab('sub-nuovo')">Nuovo Cliente</div>
@@ -386,6 +387,7 @@ document.getElementById('tab-cliente').classList.add('hidden');
 document.getElementById('tab-admin').classList.add('active');
 document.getElementById('tab-admin').classList.remove('hidden');
 caricaClienti();
+caricaNotifiche();
 } else { mostraMsg('msg-console-password','Password errata.','error'); }
 }
 
@@ -640,6 +642,7 @@ document.getElementById('modal-premio-text').textContent =
 'Hai riscattato: ' + nomePremio + '! ' +
 (nuoviPunti > 0 ? 'Hai ancora ' + nuoviPunti + ' punto/i.' : 'Continua a collezionare punti per il prossimo premio!');
 document.getElementById('modal-premio').classList.remove('hidden');
+await db.from('notifiche').insert({ tipo: 'premio', cliente_id: clienteLoggato.id, cliente_nome: (clienteLoggato.nome||'') + ' ' + (clienteLoggato.cognome||''), premio: nomePremio });
 await mostraProfiloCliente(clienteLoggato);
 }
 
@@ -744,9 +747,8 @@ async function aggiungiPuntiManuali() {
   var nota = prompt('Nota:') || 'Aggiunta manuale';
   await db.from('movimenti').insert({ cliente_id: clienteAdminCorrente.id, tipo: 'manuale', punti: punti, nota: nota });
   var nuovi = clienteAdminCorrente.punti + punti;
-  var premi = Math.floor(nuovi / 10);
-  var finali = nuovi - (premi * 10);
-  await db.from('clienti').update({ punti: finali, punti_totali: clienteAdminCorrente.punti_totali + punti, premi_riscattati: clienteAdminCorrente.premi_riscattati + premi }).eq('id', clienteAdminCorrente.id);
+  var finali = nuovi;
+  await db.from('clienti').update({ punti: finali, punti_totali: clienteAdminCorrente.punti_totali + punti }).eq('id', clienteAdminCorrente.id);
   mostraMsg('msg-admin-punti', '+' + punti + ' punti manuali aggiunti', 'success');
   var aggiornato = await db.from('clienti').select('*').eq('id', clienteAdminCorrente.id).single();
   if (!aggiornato.error) selezionaClienteAdmin(aggiornato.data);
@@ -836,6 +838,28 @@ async function confermaEliminaCliente(clienteId, nomeCliente) {
   var r = await db.from('clienti').delete().eq('id', clienteId);
   if (r.error) { alert('Errore: ' + r.error.message); return; }
   caricaClienti();
+}
+
+// --- ADMIN: NOTIFICHE PREMI ---
+async function caricaNotifiche() {
+  var r = await db.from('notifiche').select('*').eq('letto', false).order('created_at', {ascending:false});
+  var el = document.getElementById('notifiche-admin');
+  if (r.error || !r.data || r.data.length === 0) { el.innerHTML = ''; return; }
+  var h = '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:16px;margin-bottom:12px;">';
+  h += '<strong style="color:#856404;">&#x1F514; Richieste premio in attesa (' + r.data.length + ')</strong><br><br>';
+  r.data.forEach(function(n) {
+    var d = n.created_at ? new Date(n.created_at).toLocaleDateString('it-IT') : '';
+    h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #ffeeba;">';
+    h += '<span><strong>' + (n.cliente_nome||'Cliente') + '</strong> &rarr; ' + (n.premio||'premio') + ' <small style="color:#888">(' + d + ')</small></span>';
+    h += '<button data-id="' + n.id + '" onclick="segnaLettoNotifica(this.dataset.id)" style="background:#28a745;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;">Segna letto</button>';
+    h += '</div>';
+  });
+  h += '</div>';
+  el.innerHTML = h;
+}
+async function segnaLettoNotifica(id) {
+  await db.from('notifiche').update({ letto: true }).eq('id', id);
+  caricaNotifiche();
 }
 
 // --- ADMIN: EXPORT XLSX -------------------------------------
