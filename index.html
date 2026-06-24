@@ -620,9 +620,7 @@ var puntiPremio = punti >= 10 && sceltaEl ? parseInt(sceltaEl.value) : 5;
 if (punti < 5) { return; }
 if (puntiPremio === 10 && punti < 10) { puntiPremio = 5; }
 var nomePremio = puntiPremio === 10 ? 'Set 3 pezzi' : 'Tazza';
-if (!confirm('Confermi il riscatto: ' + nomePremio + '?
-' +
-(puntiPremio === 10 ? 'I tuoi punti verranno azzerati.' : 'Verranno scalati 5 punti. Ne rimarranno ' + (punti - 5) + '.'))) return;
+if (!confirm('Confermi il riscatto: ' + nomePremio + '? ' + (puntiPremio === 10 ? 'I tuoi punti verranno azzerati.' : 'Verranno scalati 5 punti. Ne rimarranno ' + (punti - 5) + '.'))) return;
 var nuoviPunti = punti - puntiPremio;
 var r1 = await db.from('movimenti').insert({
 cliente_id: clienteLoggato.id,
