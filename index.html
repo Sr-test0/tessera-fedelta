@@ -373,17 +373,18 @@ async function verificaRisposta() {
   } else { mostraMsg('msg-console-domanda','Risposta non corretta.','error'); }
 }
 async function verificaPasswordConsole() {
-  var pwd = document.getElementById('console-pwd').value;
-  if (pwd === ADMIN_PASSWORD) {
-    adminAutenticato = true;
-    document.getElementById('page-console').classList.add('hidden');
-    document.getElementById('page-cliente').classList.remove('hidden');
-    document.getElementById('tab-cliente').classList.remove('active');
-    document.getElementById('tab-cliente').classList.add('hidden');
-    document.getElementById('tab-admin').classList.add('active');
-    document.getElementById('tab-admin').classList.remove('hidden');
-    caricaClienti();
-  } else { mostraMsg('msg-console-password','Password errata.','error'); }
+var pwd = document.getElementById('console-pwd').value;
+if (pwd === ADMIN_PASSWORD) {
+adminAutenticato = true;
+salvaSessione('admin', { autenticato: true });
+document.getElementById('page-console').classList.add('hidden');
+document.getElementById('page-cliente').classList.remove('hidden');
+document.getElementById('tab-cliente').classList.remove('active');
+document.getElementById('tab-cliente').classList.add('hidden');
+document.getElementById('tab-admin').classList.add('active');
+document.getElementById('tab-admin').classList.remove('hidden');
+caricaClienti();
+} else { mostraMsg('msg-console-password','Password errata.','error'); }
 }
 
 function puntiHTML(punti) {
@@ -408,6 +409,35 @@ function generaPasswordAuto(nome) {
   var parti = nome.trim().split(' ');
   var iniziali = parti.map(function(p){ return p.charAt(0).toUpperCase(); }).join('');
   return iniziali + new Date().getFullYear();
+}
+
+// ─── GESTIONE SESSIONE ───────────────────────────────────
+var _SESSIONE_CLIENTE_MS = 1 * 60 * 60 * 1000;  // 1 ora
+var _SESSIONE_ADMIN_MS   = 3 * 60 * 60 * 1000;  // 3 ore
+
+function salvaSessione(tipo, dati) {
+  var scadenza = Date.now() + (tipo === 'admin' ? _SESSIONE_ADMIN_MS : _SESSIONE_CLIENTE_MS);
+  localStorage.setItem('sessione_' + tipo, JSON.stringify({ dati: dati, scadenza: scadenza }));
+}
+function leggiSessione(tipo) {
+  var stored = localStorage.getItem('sessione_' + tipo);
+  if (!stored) return null;
+  var s = JSON.parse(stored);
+  if (Date.now() > s.scadenza) {
+    localStorage.removeItem('sessione_' + tipo);
+    return null;
+  }
+  return s.dati;
+}
+function cancellaSessione(tipo) {
+  localStorage.removeItem('sessione_' + tipo);
+}
+function rinnovaSessione(tipo) {
+  var stored = localStorage.getItem('sessione_' + tipo);
+  if (!stored) return;
+  var s = JSON.parse(stored);
+  s.scadenza = Date.now() + (tipo === 'admin' ? _SESSIONE_ADMIN_MS : _SESSIONE_CLIENTE_MS);
+  localStorage.setItem('sessione_' + tipo, JSON.stringify(s));
 }
 
 // ─── HASH PASSWORD (SHA-256 Web Crypto API) ──────────────
@@ -456,7 +486,6 @@ async function loginCliente() {
 var email = document.getElementById('login-email').value.trim();
 var pwd = document.getElementById('login-password').value;
 if (!email || !pwd) { mostraMsg('msg-login', 'Inserisci email e password.', 'error'); return; }
-// Rate limiting
 var rl = checkRateLimit(email);
 if (rl.bloccato) {
 mostraMsg('msg-login', 'Troppi tentativi falliti. Riprova tra ' + rl.minuti + ' minuto/i.', 'error');
@@ -468,13 +497,11 @@ registraLoginFallito(email);
 mostraMsg('msg-login', 'Email non trovata.', 'error');
 return;
 }
-// Supporto doppio: hash SHA-256 (nuovo) e plain text (vecchio, per migrazione graduale)
 var pwdHash = await hashPassword(pwd);
 var pwdOk = false;
 if (r.data.password === pwdHash) {
 pwdOk = true;
 } else if (r.data.password === pwd) {
-// Password ancora in chiaro: aggiorno al volo con hash
 pwdOk = true;
 await db.from('clienti').update({ password: pwdHash }).eq('id', r.data.id);
 r.data.password = pwdHash;
@@ -489,6 +516,7 @@ return;
 }
 resetRateLimit(email);
 clienteLoggato = r.data;
+salvaSessione('cliente', { id: r.data.id, email: r.data.email });
 document.getElementById('cliente-login').classList.add('hidden');
 document.getElementById('cliente-profilo').classList.remove('hidden');
 document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + r.data.nome + '</strong>' +
@@ -496,13 +524,14 @@ document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + r.data.nom
 await mostraProfiloCliente(r.data);
 }
 function logoutCliente() {
-  clienteLoggato = null;
-  document.getElementById('cliente-login').classList.remove('hidden');
-  document.getElementById('cliente-profilo').classList.add('hidden');
-  document.getElementById('login-email').value = '';
-  document.getElementById('login-password').value = '';
-  document.getElementById('tessera-display').innerHTML = '';
-  document.getElementById('storico-lista').innerHTML = '';
+clienteLoggato = null;
+cancellaSessione('cliente');
+document.getElementById('cliente-login').classList.remove('hidden');
+document.getElementById('cliente-profilo').classList.add('hidden');
+document.getElementById('login-email').value = '';
+document.getElementById('login-password').value = '';
+document.getElementById('tessera-display').innerHTML = '';
+document.getElementById('storico-lista').innerHTML = '';
 }
 async function cambiaPassword() {
 if (!clienteLoggato) return;
@@ -1120,8 +1149,62 @@ async function stampaTessera() {
 }
 
 // ─── INIT ROUTE ──────────────────────────────────────────
-if (new URLSearchParams(window.location.search).has('console')) { inizializzaConsole(); }
+
+// Controllo periodico scadenza sessione ogni minuto
+setInterval(function() {
+  if (clienteLoggato && !leggiSessione('cliente')) {
+    clienteLoggato = null;
+    document.getElementById('cliente-profilo').classList.add('hidden');
+    document.getElementById('cliente-login').classList.remove('hidden');
+    mostraMsg('msg-login', 'Sessione scaduta. Effettua di nuovo il login.', 'info');
+  }
+  if (adminAutenticato && !leggiSessione('admin')) {
+    adminAutenticato = false;
+    location.reload();
+  }
+}, 60 * 1000);
+
+// Rinnova sessione ad ogni interazione utente
+document.addEventListener('click', function() {
+  if (clienteLoggato) rinnovaSessione('cliente');
+  if (adminAutenticato) rinnovaSessione('admin');
+});
+
+// Ripristino sessioni al caricamento
+(async function() {
+  var params = new URLSearchParams(window.location.search);
+  if (params.has('console')) {
+    // Controlla se c'è sessione admin valida
+    var sessAdmin = leggiSessione('admin');
+    if (sessAdmin && sessAdmin.autenticato) {
+      adminAutenticato = true;
+      document.getElementById('page-cliente').classList.remove('hidden');
+      document.getElementById('tab-cliente').classList.add('hidden');
+      document.getElementById('tab-admin').classList.add('active');
+      document.getElementById('tab-admin').classList.remove('hidden');
+      caricaClienti();
+    } else {
+      inizializzaConsole();
+    }
+    return;
+  }
+  // Controlla sessione cliente
+  var sessCliente = leggiSessione('cliente');
+  if (sessCliente && sessCliente.id) {
+    var r = await db.from('clienti').select('*').eq('id', sessCliente.id).single();
+    if (!r.error && r.data) {
+      clienteLoggato = r.data;
+      document.getElementById('cliente-login').classList.add('hidden');
+      document.getElementById('cliente-profilo').classList.remove('hidden');
+      document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + r.data.nome + '</strong>' +
+        (r.data.password_temp ? '<span class="pass-temp-badge">⚠ password temporanea</span>' : '');
+      await mostraProfiloCliente(r.data);
+    } else {
+      cancellaSessione('cliente');
+    }
+  }
+})();
 </script>
 </body>
-<!-- v1.9 -->
+<!-- v2.0 -->
 </html>
