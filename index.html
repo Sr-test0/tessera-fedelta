@@ -321,7 +321,7 @@ var adminAutenticato = false;
 var clienteLoggato = null;
 var resetPwdClienteId = null;
 
-// ─── UTILS ───────────────────────────────────────────────
+// --- UTILS -----------------------------------------------
 function mostraTab(id) {
   ['tab-cliente','tab-admin'].forEach(function(t) {
     document.getElementById(t).classList.toggle('active', 'tab-'+id === t);
@@ -355,7 +355,7 @@ function verificaAdmin() {
   }
 }
 
-// ─── ACCESSO /?console ───────────────────────────────────
+// --- ACCESSO /?console -----------------------------------
 async function inizializzaConsole() {
   document.getElementById('page-cliente').classList.add('hidden');
   document.getElementById('page-console').classList.remove('hidden');
@@ -413,7 +413,7 @@ function generaPasswordAuto(nome) {
   return iniziali + new Date().getFullYear();
 }
 
-// ─── GESTIONE SESSIONE ───────────────────────────────────
+// --- GESTIONE SESSIONE -----------------------------------
 var _SESSIONE_CLIENTE_MS = 1 * 60 * 60 * 1000;  // 1 ora
 var _SESSIONE_ADMIN_MS   = 3 * 60 * 60 * 1000;  // 3 ore
 
@@ -442,7 +442,7 @@ function rinnovaSessione(tipo) {
   localStorage.setItem('sessione_' + tipo, JSON.stringify(s));
 }
 
-// ─── HASH PASSWORD (SHA-256 Web Crypto API) ──────────────
+// --- HASH PASSWORD (SHA-256 Web Crypto API) --------------
 async function hashPassword(password) {
 var encoder = new TextEncoder();
 var data = encoder.encode(password);
@@ -451,7 +451,7 @@ var hashArray = Array.from(new Uint8Array(hashBuffer));
 return hashArray.map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
 }
 
-// ─── RATE LIMITING LOGIN ─────────────────────────────────
+// --- RATE LIMITING LOGIN ---------------------------------
 var _LOGIN_MAX_TENTATIVI = 5;
 var _LOGIN_BLOCCO_MS = 15 * 60 * 1000;
 function checkRateLimit(email) {
@@ -483,7 +483,7 @@ localStorage.removeItem('rl_' + email.replace(/[^a-z0-9]/gi,'_'));
 }
 
 
-// ─── LOGIN CLIENTE ────────────────────────────────────────
+// --- LOGIN CLIENTE ----------------------------------------
 async function loginCliente() {
 var email = document.getElementById('login-email').value.trim();
 var pwd = document.getElementById('login-password').value;
@@ -552,7 +552,7 @@ document.getElementById('nuova-pwd-2').value = '';
 mostraMsg('msg-cambia-pwd', 'Password aggiornata con successo!', 'success');
 }
 
-// ─── PROFILO CLIENTE ──────────────────────────────────────
+// --- PROFILO CLIENTE --------------------------------------
 async function mostraProfiloCliente(c) {
 var mv = await db.from('movimenti').select('*').eq('cliente_id', c.id).order('created_at', {ascending: false}).limit(20);
 var target = c.punti < 5 ? 5 : 10;
@@ -611,7 +611,7 @@ return '<li><div>' + badge + ' ' + (m.nota||'') + imp + '</div>' +
 }).join('');
 }
 
-// ─── RICHIEDI PREMIO (lato cliente) ────────────────────────
+// --- RICHIEDI PREMIO (lato cliente) ------------------------
 async function richiediPremio() {
 if (!clienteLoggato) return;
 var punti = clienteLoggato.punti;
@@ -645,7 +645,7 @@ document.getElementById('modal-premio').classList.remove('hidden');
 await mostraProfiloCliente(clienteLoggato);
 }
 
-// ─── ADMIN: CERCA CLIENTE (nome/cognome/email) ────────────
+// --- ADMIN: CERCA CLIENTE (nome/cognome/email) ------------
 async function cercaClienteAdmin() {
   var query = document.getElementById('admin-cerca-query').value.trim();
   if (!query) return;
@@ -754,7 +754,7 @@ async function aggiungiPuntiManuali() {
   if (!aggiornato.error) selezionaClienteAdmin(aggiornato.data);
 }
 
-// ─── ADMIN: CREA CLIENTE ──────────────────────────────────
+// --- ADMIN: CREA CLIENTE ----------------------------------
 async function creaCliente() {
 var nome = document.getElementById('nuovo-nome').value.trim();
 var email = document.getElementById('nuovo-email').value.trim();
@@ -774,7 +774,7 @@ mostraMsg('msg-nuovo-cliente',
 ['nuovo-nome','nuovo-email','nuovo-tel','nuovo-pwd','nuovo-note'].forEach(function(id){ document.getElementById(id).value = ''; });
 }
 
-// ─── ADMIN: RESET PASSWORD ────────────────────────────────
+// --- ADMIN: RESET PASSWORD --------------------------------
 function apriResetPassword(clienteId, nomeCliente) {
   resetPwdClienteId = clienteId;
   document.getElementById('modal-reset-nome').textContent = 'Cliente: ' + nomeCliente;
@@ -792,7 +792,7 @@ document.getElementById('modal-reset-pwd').classList.add('hidden');
 caricaClienti();
 }
 
-// ─── ADMIN: ELENCO CLIENTI ────────────────────────────────
+// --- ADMIN: ELENCO CLIENTI --------------------------------
 async function caricaClienti() {
   var r = await db.from('clienti').select('*').order('created_at', {ascending: false});
   if (r.error) return;
@@ -832,7 +832,7 @@ mostraSubTab('sub-aggiungi');
 document.getElementById('admin-risultati-lista').classList.add('hidden');
 }
 
-// ─── ADMIN: ELIMINA CLIENTE ───────────────────────────────
+// --- ADMIN: ELIMINA CLIENTE -------------------------------
 async function confermaEliminaCliente(clienteId, nomeCliente) {
   if (!confirm('Eliminare la tessera di ' + nomeCliente + '?\nVerranno cancellati anche tutti i movimenti. Questa azione è irreversibile.')) return;
   var r = await db.from('clienti').delete().eq('id', clienteId);
@@ -840,7 +840,7 @@ async function confermaEliminaCliente(clienteId, nomeCliente) {
   caricaClienti();
 }
 
-// ─── ADMIN: EXPORT XLSX ─────────────────────────────────────
+// --- ADMIN: EXPORT XLSX -------------------------------------
 async function avviaExport() {
   if (tuttiClienti.length === 0) await caricaClienti();
 }
@@ -858,7 +858,7 @@ async function esportaXLSX() {
     movPerCliente[m.cliente_id].push(m);
   });
 
-  // ── FOGLIO 1: CLIENTI ──
+  // -- FOGLIO 1: CLIENTI --
   var wsClientiData = [
     ['Tessera ID','Nome','Email','Telefono','Punti Attuali','Punti Totali','Premi Ricevuti','N. Acquisti','Totale Acquistato (EUR)','Data Registrazione','Stato Password','Origine','Note']
   ];
@@ -883,7 +883,7 @@ async function esportaXLSX() {
   ];
   wsClienti['!autofilter'] = { ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:wsClientiData.length-1,c:12}}) };
 
-  // ── FOGLIO 2: MOVIMENTI ──
+  // -- FOGLIO 2: MOVIMENTI --
   var wsMovData = [
     ['Tessera ID','Nome Cliente','Email','Data','Tipo','Punti','Importo EUR','Ordine ID','Nota']
   ];
@@ -904,7 +904,7 @@ async function esportaXLSX() {
   wsMov['!cols'] = [{wch:12},{wch:22},{wch:30},{wch:12},{wch:12},{wch:8},{wch:14},{wch:16},{wch:24}];
   wsMov['!autofilter'] = { ref: XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:wsMovData.length-1,c:8}}) };
 
-  // ── FOGLIO 3: RIEPILOGO ──
+  // -- FOGLIO 3: RIEPILOGO --
   var totEurAll = movimenti.filter(function(m){ return m.tipo==='acquisto' && m.importo_euro; })
     .reduce(function(s,m){ return s + parseFloat(m.importo_euro||0); }, 0);
   var totPuntiEmessi = movimenti.filter(function(m){ return m.punti > 0; })
@@ -932,7 +932,7 @@ async function esportaXLSX() {
   var wsRiep = XLSX.utils.aoa_to_sheet(wsRiepData);
   wsRiep['!cols'] = [{wch:30},{wch:20}];
 
-  // ── STILE INTESTAZIONI (grassetto) ──
+  // -- STILE INTESTAZIONI (grassetto) --
   function styleHeaders(ws, nCols) {
     for (var c = 0; c < nCols; c++) {
       var addr = XLSX.utils.encode_cell({r:0, c:c});
@@ -943,7 +943,7 @@ async function esportaXLSX() {
   styleHeaders(wsClienti, 12);
   styleHeaders(wsMov, 9);
 
-  // ── CREA E SCARICA WORKBOOK ──
+  // -- CREA E SCARICA WORKBOOK --
   var wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, wsClienti, 'Clienti');
   XLSX.utils.book_append_sheet(wb, wsMov, 'Movimenti');
@@ -953,7 +953,7 @@ async function esportaXLSX() {
   mostraMsg('msg-export','Export completato! File Excel scaricato.','success');
 }
 
-// ─── IMPOSTAZIONI ────────────────────────────────────────
+// --- IMPOSTAZIONI ----------------------------------------
 async function caricaImpostazioni() {
   var r = await db.from('impostazioni').select('*').eq('id',1).single();
   if (!r.error && r.data) {
@@ -970,7 +970,7 @@ async function salvaImpostazioni() {
   mostraMsg('msg-impostazioni','Impostazioni salvate!','success');
 }
 
-// ─── REGISTRAZIONE AUTONOMA ──────────────────────────────
+// --- REGISTRAZIONE AUTONOMA ------------------------------
 function mostraFormRegistrazione() {
 document.getElementById('cliente-login').classList.add('hidden');
 document.getElementById('cliente-registrazione').classList.remove('hidden');
@@ -1013,7 +1013,7 @@ document.getElementById('msg-registrazione').innerHTML = '<div class="alert aler
 ['reg-nome','reg-cognome','reg-email'].forEach(function(id){ document.getElementById(id).value = ''; });
 }
 
-// ─── ADMIN: VISUALIZZA TESSERA ──────────────────────────
+// --- ADMIN: VISUALIZZA TESSERA --------------------------
 async function visualizzaTessera(clienteId) {
   var r = await db.from('clienti').select('*').eq('id', clienteId).single();
   if (r.error || !r.data) return;
@@ -1054,7 +1054,7 @@ function tornaAllElenco() {
   mostraSubTab('sub-lista');
 }
 
-// ─── RECUPERO PASSWORD ──────────────────────────────────
+// --- RECUPERO PASSWORD ----------------------------------
 var _resetClienteVerificato = null;
 
 function mostraFormResetPassword() {
@@ -1104,7 +1104,7 @@ document.getElementById('reset-tessera-id').disabled = true;
 mostraMsg('msg-reset-password','Dati verificati! Scegli la tua nuova password.','success');
 }
 
-// ─── STAMPA TESSERA PDF ─────────────────────────────────
+// --- STAMPA TESSERA PDF ---------------------------------
 async function stampaTessera() {
   if (!clienteLoggato) return;
   var c = clienteLoggato;
@@ -1124,11 +1124,11 @@ async function stampaTessera() {
   var doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
   var W = 85.6, H = 54;
 
-  // ── Sfondo crema ──
+  // -- Sfondo crema --
   doc.setFillColor(253, 250, 244);
   doc.rect(0, 0, W, H, 'F');
 
-  // ── Doppio bordo dorato ──
+  // -- Doppio bordo dorato --
   doc.setDrawColor(180, 140, 40);
   doc.setLineWidth(0.8);
   doc.rect(1.5, 1.5, W - 3, H - 3);
@@ -1136,29 +1136,29 @@ async function stampaTessera() {
   doc.setLineWidth(0.3);
   doc.rect(2.8, 2.8, W - 5.6, H - 5.6);
 
-  // ── Logo grande (16x16mm centrato) ──
+  // -- Logo grande (16x16mm centrato) --
   if (logoB64) {
     doc.addImage(logoB64, 'PNG', (W - 16) / 2, 3.5, 16, 16);
   }
 
-  // ── CARTA FEDELTÀ (più piccolo, con accento) ──
+  // -- CARTA FEDELTÀ (più piccolo, con accento) --
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
   doc.setTextColor(139, 105, 20);
   doc.text('CARTA FEDELTÀ', W / 2, 22.5, { align: 'center' });
 
-  // ── Linea sottotitolo ──
+  // -- Linea sottotitolo --
   doc.setDrawColor(180, 140, 40);
   doc.setLineWidth(0.2);
   doc.line(10, 24, W - 10, 24);
 
-  // ── N° tessera (piccolo, sopra nome, allineato a destra) ──
+  // -- N° tessera (piccolo, sopra nome, allineato a destra) --
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(4.5);
   doc.setTextColor(160, 130, 60);
   doc.text('N° ' + c.tessera_id, W - 4, 27.5, { align: 'right' });
 
-  // ── Nome cliente centrato, font elegante (times) ──
+  // -- Nome cliente centrato, font elegante (times) --
   doc.setFont('times', 'bold');
   var nomeFontSize = 9;
   doc.setFontSize(nomeFontSize);
@@ -1170,12 +1170,12 @@ async function stampaTessera() {
   doc.setTextColor(40, 30, 5);
   doc.text(c.nome, W / 2, 27.5, { align: 'center' });
 
-  // ── Linea sottile sotto nome ──
+  // -- Linea sottile sotto nome --
   doc.setDrawColor(160, 130, 50);
   doc.setLineWidth(0.15);
   doc.line(10, 29, W - 10, 29);
 
-  // ── CERCHI PUNTI tondi (2 righe da 5) ──
+  // -- CERCHI PUNTI tondi (2 righe da 5) --
   // r=3.2mm, gap orizzontale tra centri = 14mm, gap riga = 7.5mm
   // 5 cerchi: larghezza totale = 4*14 + 2*3.2 = 56+6.4 = 62.4mm → startX = (85.6-62.4)/2+3.2 = 15.2
   var r = 3.2;
@@ -1219,12 +1219,12 @@ async function stampaTessera() {
     }
   }
 
-  // ── Linea footer ──
+  // -- Linea footer --
   doc.setDrawColor(180, 140, 40);
   doc.setLineWidth(0.2);
   doc.line(4, 46, W - 4, 46);
 
-  // ── Testo footer ──
+  // -- Testo footer --
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(4.8);
   doc.setTextColor(80, 60, 10);
@@ -1238,7 +1238,7 @@ async function stampaTessera() {
   doc.save('tessera-srart-' + c.nome.replace(/\s+/g, '-').toLowerCase() + '.pdf');
 }
 
-// ─── INIT ROUTE ──────────────────────────────────────────
+// --- INIT ROUTE ------------------------------------------
 
 // Controllo periodico scadenza sessione ogni minuto
 setInterval(function() {
