@@ -579,7 +579,7 @@ premioHTML = '<div class="card" style="border:2px solid #c9a227;text-align:cente
 '<h4 style="color:#8B6914;margin-bottom:8px">Hai diritto a un premio!</h4>' +
 '<p style="font-size:0.88em;color:#666;margin-bottom:14px">Scegli il premio che vuoi riscattare:</p>' +
 '<select id="scelta-premio" style="margin-bottom:12px">' +
-'<option value="10">🏆 Premio 10 punti — Set 3 pezzi (azzera tutto)</option>' +
+'<option value="10">🏆 Premio 10 punti — Set 3 pezzi (rimangono ' + (c.punti - 10) + ' punti)</option>' +
 '<option value="5">☕ Premio 5 punti — Tazza (rimangono ' + (c.punti - 5) + ' punti)</option>' +
 '</select>' +
 '<button onclick="richiediPremio()" style="width:100%;font-size:1em;padding:12px">Riscatta premio</button>' +
