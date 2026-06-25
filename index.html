@@ -174,7 +174,7 @@ tr:hover td { background: #fafafa; }
 <button class="secondary" onclick="logoutCliente()" style="padding:6px 14px;font-size:0.85em">Esci</button>
 </div>
 <div id="tessera-display"></div>
-<div style="text-align:center;margin-bottom:8px">
+<div id="btn-stampa-box" style="text-align:center;margin-bottom:8px">
 <button class="secondary" onclick="stampaTessera()" style="width:100%;font-size:0.95em">🖨️ Stampa la tua tessera (PDF)</button>
 </div>
 <div class="card">
@@ -544,6 +544,7 @@ document.getElementById("pwd-f-2").value = "";
 document.getElementById("msg-f").innerHTML = "";
 document.getElementById("tessera-display").innerHTML = "";
 document.getElementById("storico-lista").innerHTML = "";
+document.getElementById("btn-stampa-box").classList.add("hidden");
 } else {
 if (forzatoEl) forzatoEl.classList.add("hidden");
 await mostraProfiloCliente(r.data);
@@ -591,6 +592,7 @@ clienteLoggato.password = pwdHash;
 clienteLoggato.password_temp = false;
 document.getElementById("logout-nome").innerHTML = "Ciao, <strong>" + clienteLoggato.nome + "</strong>";
 document.getElementById("cambio-pwd-forzato").classList.add("hidden");
+document.getElementById("btn-stampa-box").classList.remove("hidden");
 await mostraProfiloCliente(clienteLoggato);
 }
 async function cambiaPassword() {
