@@ -326,7 +326,7 @@ tr:hover td { background: #fafafa; }
 <script>
 var SUPABASE_URL = 'https://lixlgaxkjtjbtudjownk.supabase.co';
 var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpeGxnYXhranRqYnR1ZGpvd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MjQyNjIsImV4cCI6MjA5NzEwMDI2Mn0.o9P2VoMky3Khfz84XkPKPbds5adOWmNM_HRUiY8St-4';
-var ADMIN_PASSWORD = 'srart2024';
+var ADMIN_PASSWORD_HASH = '8cbcda898806b5c4229fbf9c1a9bd166b41f217f3b9755a2f23ac0cd1e8a4c5b';
 var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 var clienteAdminCorrente = null;
 var tuttiClienti = [];
@@ -356,9 +356,9 @@ function richiestaAdmin() {
   if (adminAutenticato) { mostraTab('admin'); return; }
   document.getElementById('overlay-admin').classList.remove('hidden');
 }
-function verificaAdmin() {
+async function verificaAdmin() {
   var pwd = document.getElementById('admin-pwd').value;
-  if (pwd === ADMIN_PASSWORD) {
+  if (await hashPassword(pwd) === ADMIN_PASSWORD_HASH) {
     adminAutenticato = true;
     document.getElementById('overlay-admin').classList.add('hidden');
     document.getElementById('admin-pwd').value = '';
@@ -381,7 +381,7 @@ async function inizializzaConsole() {
 async function verificaRisposta() {
   var risposta = document.getElementById('console-risposta').value.trim();
   if (!risposta) return;
-  if (risposta.toLowerCase() === (window._rispostaCorretta||'1510').toLowerCase()) {
+  if (risposta && window._rispostaCorretta && risposta.toLowerCase() === window._rispostaCorretta.toLowerCase()) {
     document.getElementById('console-step-domanda').classList.add('hidden');
     document.getElementById('console-step-password').classList.remove('hidden');
     document.getElementById('console-risposta').value = '';
@@ -389,7 +389,7 @@ async function verificaRisposta() {
 }
 async function verificaPasswordConsole() {
 var pwd = document.getElementById('console-pwd').value;
-if (pwd === ADMIN_PASSWORD) {
+if (await hashPassword(pwd) === ADMIN_PASSWORD_HASH) {
 adminAutenticato = true;
 salvaSessione('admin', { autenticato: true });
 document.getElementById('page-console').classList.add('hidden');
@@ -480,32 +480,29 @@ return hashArray.map(function(b){ return b.toString(16).padStart(2,'0'); }).join
 // --- RATE LIMITING LOGIN ---------------------------------
 var _LOGIN_MAX_TENTATIVI = 5;
 var _LOGIN_BLOCCO_MS = 15 * 60 * 1000;
-function checkRateLimit(email) {
-var key = 'rl_' + email.replace(/[^a-z0-9]/gi,'_');
-var stored = localStorage.getItem(key);
-if (!stored) return { bloccato: false };
-var data = JSON.parse(stored);
-var ora = Date.now();
-if (data.bloccatoFino && ora < data.bloccatoFino) {
-var minuti = Math.ceil((data.bloccatoFino - ora) / 60000);
+async function checkRateLimit(email) {
+var r = await db.from("tentativi_login").select("tentativi,bloccato_fino").eq("email", email).maybeSingle();
+if (r.error || !r.data) return { bloccato: false };
+var data = r.data;
+if (data.bloccato_fino && new Date(data.bloccato_fino) > new Date()) {
+var minuti = Math.ceil((new Date(data.bloccato_fino) - new Date()) / 60000);
 return { bloccato: true, minuti: minuti };
 }
-localStorage.removeItem(key);
 return { bloccato: false };
 }
-function registraLoginFallito(email) {
-var key = 'rl_' + email.replace(/[^a-z0-9]/gi,'_');
-var stored = localStorage.getItem(key);
-var data = stored ? JSON.parse(stored) : { tentativi: 0 };
-data.tentativi = (data.tentativi || 0) + 1;
-if (data.tentativi >= _LOGIN_MAX_TENTATIVI) {
-data.bloccatoFino = Date.now() + _LOGIN_BLOCCO_MS;
+async function registraLoginFallito(email) {
+var r = await db.from("tentativi_login").select("id,tentativi").eq("email", email).maybeSingle();
+var nuoviTentativi = r.data ? (r.data.tentativi || 0) + 1 : 1;
+var bloccatoFino = nuoviTentativi >= _LOGIN_MAX_TENTATIVI ? new Date(Date.now() + _LOGIN_BLOCCO_MS).toISOString() : null;
+if (r.data) {
+await db.from("tentativi_login").update({ tentativi: nuoviTentativi, bloccato_fino: bloccatoFino, updated_at: new Date().toISOString() }).eq("email", email);
+} else {
+await db.from("tentativi_login").insert({ email: email, tentativi: nuoviTentativi, bloccato_fino: bloccatoFino });
 }
-localStorage.setItem(key, JSON.stringify(data));
-return data.tentativi;
+return nuoviTentativi;
 }
-function resetRateLimit(email) {
-localStorage.removeItem('rl_' + email.replace(/[^a-z0-9]/gi,'_'));
+async function resetRateLimit(email) {
+await db.from("tentativi_login").delete().eq("email", email);
 }
 
 
@@ -514,14 +511,14 @@ async function loginCliente() {
 var email = document.getElementById('login-email').value.trim();
 var pwd = document.getElementById('login-password').value;
 if (!email || !pwd) { mostraMsg('msg-login', 'Inserisci email e password.', 'error'); return; }
-var rl = checkRateLimit(email);
+var rl = await checkRateLimit(email);
 if (rl.bloccato) {
 mostraMsg('msg-login', 'Troppi tentativi falliti. Riprova tra ' + rl.minuti + ' minuto/i.', 'error');
 return;
 }
 var r = await db.from('clienti').select('*').eq('email', email).single();
 if (r.error || !r.data) {
-registraLoginFallito(email);
+await registraLoginFallito(email);
 mostraMsg('msg-login', 'Email non trovata.', 'error');
 return;
 }
@@ -535,14 +532,15 @@ await db.from('clienti').update({ password: pwdHash }).eq('id', r.data.id);
 r.data.password = pwdHash;
 }
 if (!pwdOk) {
-var tentativi = registraLoginFallito(email);
+var tentativi = await registraLoginFallito(email);
 var rimasti = _LOGIN_MAX_TENTATIVI - tentativi;
 var msg = 'Password errata.';
 if (rimasti > 0 && rimasti <= 3) msg += ' Ancora ' + rimasti + ' tentativo/i prima del blocco.';
 mostraMsg('msg-login', msg, 'error');
 return;
 }
-resetRateLimit(email);
+await resetRateLimit(email);
+db.from("clienti").update({ last_login: new Date().toISOString() }).eq("id", r.data.id);
 clienteLoggato = r.data;
 salvaSessione('cliente', { id: r.data.id, email: r.data.email });
 document.getElementById("cliente-login").classList.add("hidden");
@@ -888,17 +886,22 @@ caricaClienti();
 }
 
 // --- ADMIN: ELENCO CLIENTI --------------------------------
-async function caricaClienti() {
-  var r = await db.from('clienti').select('*').order('created_at', {ascending: false});
+var _clientiOffset = 0;
+var _clientiPageSize = 50;
+async function caricaClienti(reset) {
+  if (reset !== false) { _clientiOffset = 0; tuttiClienti = []; }
+  var r = await db.from("clienti").select("*").order("created_at", { ascending: false }).range(_clientiOffset, _clientiOffset + _clientiPageSize - 1);
   if (r.error) return;
-  tuttiClienti = r.data || [];
-  renderTabella(tuttiClienti);
+  var nuovi = r.data || [];
+  tuttiClienti = tuttiClienti.concat(nuovi);
+  _clientiOffset += nuovi.length;
+  renderTabella(tuttiClienti, nuovi.length === _clientiPageSize);
 }
 function filtraClienti() {
   var q = document.getElementById('filtro-lista').value.toLowerCase();
   renderTabella(tuttiClienti.filter(function(c){ return c.nome.toLowerCase().includes(q) || c.email.toLowerCase().includes(q); }));
 }
-function renderTabella(clienti) {
+function renderTabella(clienti, haAltri) {
 if (!clienti.length) { document.getElementById('tabella-clienti').innerHTML = '<p style="color:#999;text-align:center;padding:16px">Nessun cliente</p>'; return; }
 document.getElementById('tabella-clienti').innerHTML =
 '<table><thead><tr><th>Nome</th><th>Email</th><th>Punti</th><th>Premi</th><th>Password</th><th>Azioni</th></tr></thead><tbody>' +
@@ -916,7 +919,7 @@ return '<tr><td><strong>' + c.nome + '</strong>' + (c.origine === 'autonoma' ? '
 '<button style="padding:5px 10px;font-size:0.8em;background:#8B6914" onclick="aggiungiPuntiDaElenco(' + "'" + c.id + "'" + ')">+ Punti</button>' +
 '<button class="secondary" style="padding:5px 10px;font-size:0.8em" onclick="apriResetPassword(' + "'" + c.id + "'" + ',decodeURIComponent(' + "'" + encodeURIComponent(c.nome) + "'" + '))">Reset pwd</button>' +
 '<button class="danger" style="padding:5px 10px;font-size:0.8em" onclick="confermaEliminaCliente(' + "'" + c.id + "'" + ',decodeURIComponent(' + "'" + encodeURIComponent(c.nome) + "'" + '))">Elimina</button></td></tr>';
-}).join('') + '</tbody></table>';
+}).join("") + "</tbody></table>" + (haAltri ? "<div style=\"text-align:center;margin-top:12px\"><button class=\"secondary\" onclick=\"caricaClienti(false)\" style=\"font-size:0.85em\">Carica altri 50 clienti</button></div>" : "");
 }
 
 async function aggiungiPuntiDaElenco(clienteId) {
