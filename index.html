@@ -613,9 +613,18 @@ document.getElementById("nuova-pwd-2").value = "";
 mostraMsg("msg-cambia-pwd", "Password aggiornata con successo!", "success");
 }
 
+async function pulisciMovimentiVecchi(clienteId) {
+var count = await db.from("movimenti").select("id", { count: "exact", head: true }).eq("cliente_id", clienteId);
+if (count.error || count.count <= 300) return;
+var daEliminare = count.count - 300;
+var vecchi = await db.from("movimenti").select("id").eq("cliente_id", clienteId).order("created_at", { ascending: true }).limit(daEliminare);
+if (vecchi.error || !vecchi.data || vecchi.data.length === 0) return;
+var ids = vecchi.data.map(function(r){ return r.id; });
+await db.from("movimenti").delete().in("id", ids);
+}
 // --- PROFILO CLIENTE --------------------------------------
 async function mostraProfiloCliente(c) {
-var mv = await db.from('movimenti').select('*').eq('cliente_id', c.id).order('created_at', {ascending: false}).limit(20);
+var mv = await db.from('movimenti').select('*').eq('cliente_id', c.id).order('created_at', {ascending: false}).limit(300);
 var target = c.punti < 5 ? 5 : 10;
 var mancanti = target - c.punti;
 
@@ -690,6 +699,7 @@ punti: -puntiPremio,
 nota: 'Premio riscattato: ' + nomePremio
 });
 if (r1.error) { alert('Errore: ' + r1.error.message); return; }
+await pulisciMovimentiVecchi(clienteLoggato.id);
 var r2 = await db.from('clienti').update({
 punti: nuoviPunti,
 premi_riscattati: (clienteLoggato.premi_riscattati || 0) + 1
@@ -786,6 +796,7 @@ if (!mvRecente.error && mvRecente.data) {
 await db.from('movimenti').update({ created_at: dataAcquisto + 'T12:00:00.000Z' }).eq('id', mvRecente.data.id);
 }
 }
+await pulisciMovimentiVecchi(clienteAdminCorrente.id);
 if (res.premi_vinti > 0) {
 document.getElementById('modal-premio-text').textContent = clienteAdminCorrente.nome + ' ha vinto ' + res.premi_vinti + ' premio/i! Punti azzerati e ripartiti.';
 document.getElementById('modal-premio').classList.remove('hidden');
@@ -805,6 +816,7 @@ async function aggiungiPuntiManuali() {
   var punti = parseInt(n);
   var nota = prompt('Nota:') || 'Aggiunta manuale';
   await db.from('movimenti').insert({ cliente_id: clienteAdminCorrente.id, tipo: 'manuale', punti: punti, nota: nota });
+  await pulisciMovimentiVecchi(clienteAdminCorrente.id);
   var nuovi = clienteAdminCorrente.punti + punti;
   var finali = nuovi;
   await db.from('clienti').update({ punti: finali, punti_totali: clienteAdminCorrente.punti_totali + punti }).eq('id', clienteAdminCorrente.id);
@@ -1083,6 +1095,7 @@ var r = await db.from('clienti').insert({ nome: nomeCompleto, email: email, pass
 if (r.error) { mostraMsg('msg-registrazione', r.error.code === '23505' ? 'Email già registrata!' : 'Errore: ' + r.error.message, 'error'); return; }
 var nuovoCliente = r.data;
 await db.from('movimenti').insert({ cliente_id: nuovoCliente.id, tipo: 'benvenuto', punti: 1, nota: 'Punto di benvenuto' });
+await pulisciMovimentiVecchi(nuovoCliente.id);
 await db.from('clienti').update({ punti: 1, punti_totali: 1 }).eq('id', nuovoCliente.id);
 document.getElementById('credenziali-box-container').innerHTML =
 '<div class="credenziali-box">' +
