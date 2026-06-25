@@ -159,6 +159,16 @@ tr:hover td { background: #fafafa; }
 <p style="text-align:center;margin-top:16px;font-size:0.82em;color:#999">Non hai questi dati? Scrivi a <a href="mailto:info@sr-art.it" style="color:#8B6914">info@sr-art.it</a> e ti aiuteremo a recuperare il tuo account.</p>
 </div>
 <div id="cliente-profilo" class="hidden">
+<div id="cambio-pwd-forzato" class="hidden">
+<div class="card" style="border:2px solid #e65100;margin-top:8px">
+<h4 style="color:#e65100;margin-bottom:8px">Cambio password obbligatorio</h4>
+<p style="font-size:0.88em;color:#666;margin-bottom:14px">Per accedere alla tua tessera devi impostare una password personale. Requisiti: almeno 6 caratteri, 1 maiuscola, 1 minuscola, 1 numero, 1 carattere speciale.</p>
+<input type="password" id="pwd-f-1" placeholder="Nuova password..." />
+<input type="password" id="pwd-f-2" placeholder="Ripeti password..." />
+<button onclick="cambiaPasswordForzata()" style="width:100%">Imposta la mia password</button>
+<div id="msg-f"></div>
+</div>
+</div>
 <div class="logout-bar">
 <span id="logout-nome"></span>
 <button class="secondary" onclick="logoutCliente()" style="padding:6px 14px;font-size:0.85em">Esci</button>
@@ -173,6 +183,7 @@ tr:hover td { background: #fafafa; }
 </div>
 <div class="card">
 <h4 style="margin-bottom:12px">Cambia password</h4>
+<p style="font-size:0.82em;color:#888;margin-bottom:10px;margin-top:-4px">Requisiti: almeno 6 caratteri, 1 maiuscola, 1 minuscola, 1 numero, 1 carattere speciale.</p>
 <input type="password" id="nuova-pwd-1" placeholder="Nuova password..." />
 <input type="password" id="nuova-pwd-2" placeholder="Ripeti nuova password..." />
 <button onclick="cambiaPassword()" class="secondary">Aggiorna password</button>
@@ -522,11 +533,21 @@ return;
 resetRateLimit(email);
 clienteLoggato = r.data;
 salvaSessione('cliente', { id: r.data.id, email: r.data.email });
-document.getElementById('cliente-login').classList.add('hidden');
-document.getElementById('cliente-profilo').classList.remove('hidden');
-document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + r.data.nome + '</strong>' +
-(r.data.password_temp ? '<span class="pass-temp-badge">⚠ password temporanea</span>' : '');
+document.getElementById("cliente-login").classList.add("hidden");
+document.getElementById("cliente-profilo").classList.remove("hidden");
+document.getElementById("logout-nome").innerHTML = "Ciao, <strong>" + r.data.nome + "</strong>";
+var forzatoEl = document.getElementById("cambio-pwd-forzato");
+if (r.data.password_temp) {
+if (forzatoEl) forzatoEl.classList.remove("hidden");
+document.getElementById("pwd-f-1").value = "";
+document.getElementById("pwd-f-2").value = "";
+document.getElementById("msg-f").innerHTML = "";
+document.getElementById("tessera-display").innerHTML = "";
+document.getElementById("storico-lista").innerHTML = "";
+} else {
+if (forzatoEl) forzatoEl.classList.add("hidden");
 await mostraProfiloCliente(r.data);
+}
 }
 function logoutCliente() {
 clienteLoggato = null;
@@ -548,21 +569,46 @@ function logoutAdmin() {
   document.getElementById('page-cliente').classList.add('hidden');
   document.getElementById('console-password').value = '';
 }
-async function cambiaPassword() {
+function validatePassword(p) {
+if (p.length < 6) return "La password deve avere almeno 6 caratteri.";
+if (!/[A-Z]/.test(p)) return "Inserisci almeno una lettera maiuscola.";
+if (!/[a-z]/.test(p)) return "Inserisci almeno una lettera minuscola.";
+if (!/[0-9]/.test(p)) return "Inserisci almeno un numero.";
+if (!/[^A-Za-z0-9]/.test(p)) return "Inserisci almeno un carattere speciale (es. !, @, #, $).";
+return null;
+}
+async function cambiaPasswordForzata() {
 if (!clienteLoggato) return;
-var p1 = document.getElementById('nuova-pwd-1').value;
-var p2 = document.getElementById('nuova-pwd-2').value;
-if (!p1 || p1.length < 4) { mostraMsg('msg-cambia-pwd', 'La password deve essere di almeno 4 caratteri.', 'error'); return; }
-if (p1 !== p2) { mostraMsg('msg-cambia-pwd', 'Le password non coincidono.', 'error'); return; }
+var p1 = document.getElementById("pwd-f-1").value;
+var p2 = document.getElementById("pwd-f-2").value;
+var errPwd = validatePassword(p1);
+if (errPwd) { mostraMsg("msg-f", errPwd, "error"); return; }
+if (p1 !== p2) { mostraMsg("msg-f", "Le password non coincidono.", "error"); return; }
 var pwdHash = await hashPassword(p1);
-var r = await db.from('clienti').update({ password: pwdHash, password_temp: false }).eq('id', clienteLoggato.id);
-if (r.error) { mostraMsg('msg-cambia-pwd', 'Errore: ' + r.error.message, 'error'); return; }
+var r = await db.from("clienti").update({ password: pwdHash, password_temp: false }).eq("id", clienteLoggato.id);
+if (r.error) { mostraMsg("msg-f", "Errore: " + r.error.message, "error"); return; }
 clienteLoggato.password = pwdHash;
 clienteLoggato.password_temp = false;
-document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + clienteLoggato.nome + '</strong>';
-document.getElementById('nuova-pwd-1').value = '';
-document.getElementById('nuova-pwd-2').value = '';
-mostraMsg('msg-cambia-pwd', 'Password aggiornata con successo!', 'success');
+document.getElementById("logout-nome").innerHTML = "Ciao, <strong>" + clienteLoggato.nome + "</strong>";
+document.getElementById("cambio-pwd-forzato").classList.add("hidden");
+await mostraProfiloCliente(clienteLoggato);
+}
+async function cambiaPassword() {
+if (!clienteLoggato) return;
+var p1 = document.getElementById("nuova-pwd-1").value;
+var p2 = document.getElementById("nuova-pwd-2").value;
+var errPwd = validatePassword(p1);
+if (errPwd) { mostraMsg("msg-cambia-pwd", errPwd, "error"); return; }
+if (p1 !== p2) { mostraMsg("msg-cambia-pwd", "Le password non coincidono.", "error"); return; }
+var pwdHash = await hashPassword(p1);
+var r = await db.from("clienti").update({ password: pwdHash, password_temp: false }).eq("id", clienteLoggato.id);
+if (r.error) { mostraMsg("msg-cambia-pwd", "Errore: " + r.error.message, "error"); return; }
+clienteLoggato.password = pwdHash;
+clienteLoggato.password_temp = false;
+document.getElementById("logout-nome").innerHTML = "Ciao, <strong>" + clienteLoggato.nome + "</strong>";
+document.getElementById("nuova-pwd-1").value = "";
+document.getElementById("nuova-pwd-2").value = "";
+mostraMsg("msg-cambia-pwd", "Password aggiornata con successo!", "success");
 }
 
 // --- PROFILO CLIENTE --------------------------------------
