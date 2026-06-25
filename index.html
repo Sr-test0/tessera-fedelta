@@ -411,7 +411,19 @@ function puntiHTML(punti) {
     var lbl = i === 5 ? 'tazza' : i === 10 ? 'set' : i;
     h += '<div class="punto' + (pieno ? ' pieno' : '') + (isSpecial && pieno ? ' oro' : '') + '">' + lbl + '</div>';
   }
-  return h + '</div>';
+  h += '</div>';
+  var target = punti < 5 ? 5 : 10;
+  var perc = Math.min(100, Math.round((punti / target) * 100));
+  var mancanti = target - punti;
+  var msgSpeciale = '';
+  if (mancanti === 1) {
+    var nomePremio = target === 5 ? "tazza" : "set 3 pezzi";
+    msgSpeciale = '<div style="text-align:center;margin-top:4px;font-size:0.85em;color:#c9a227;font-weight:700">&#127775; Manca solo 1 punto per la ' + nomePremio + '!</div>';
+  }
+  h += '<div style="background:#f0ebe0;border-radius:20px;height:8px;margin:10px 0 4px;overflow:hidden">' +
+    '<div style="background:linear-gradient(90deg,#8B6914,#c9a227);height:100%;width:' + perc + '%;border-radius:20px;transition:width 0.4s"></div></div>' +
+    '<div style="text-align:center;font-size:0.78em;color:#aaa;margin-bottom:4px">' + punti + ' / ' + target + ' punti verso ' + (target === 5 ? "tazza" : "set 3 pezzi") + '</div>' + msgSpeciale;
+  return h;
 }
 function mostraMsg(id, testo, tipo) {
   tipo = tipo || 'success';
@@ -668,17 +680,29 @@ document.getElementById('tessera-display').innerHTML =
 '</div>' + premioHTML;
 
 var movs = mv.data || [];
-document.getElementById('storico-lista').innerHTML = movs.length === 0 ?
-'<li style="color:#999;text-align:center;padding:16px">Nessun movimento</li>' :
-movs.map(function(m) {
-var badge = m.tipo === 'acquisto' ? '<span class="badge badge-acquisto">Acquisto</span>' :
-m.tipo === 'premio' ? '<span class="badge badge-premio">Premio</span>' :
-m.tipo === 'benvenuto' ? '<span class="badge badge-benvenuto">Benvenuto</span>' :
-'<span class="badge badge-manuale">Manuale</span>';
-var imp = m.importo_euro ? ' &mdash; EUR ' + Number(m.importo_euro).toFixed(2) : '';
-return '<li><div>' + badge + ' ' + (m.nota||'') + imp + '</div>' +
-'<div style="font-size:0.85em;color:#999">' + (m.punti > 0 ? '+' : '') + m.punti + 'pt &mdash; ' + formatData(m.created_at) + '</div></li>';
-}).join('');
+var _storicoTutti = movs;
+var _storicoVisible = 10;
+function renderStorico(mostraTutti) {
+  var lista = mostraTutti ? _storicoTutti : _storicoTutti.slice(0, 10);
+  var html = lista.length === 0 ? '<li style="color:#999;text-align:center;padding:16px">Nessun movimento</li>' :
+  lista.map(function(m) {
+    var badge = m.tipo === "acquisto" ? '<span class="badge badge-acquisto">Acquisto</span>' :
+    m.tipo === "premio" ? '<span class="badge badge-premio">Premio</span>' :
+    m.tipo === "benvenuto" ? '<span class="badge badge-benvenuto">Benvenuto</span>' :
+    '<span class="badge badge-manuale">Manuale</span>';
+    var imp = m.importo_euro ? ' &mdash; EUR ' + Number(m.importo_euro).toFixed(2) : '';
+    return '<li><div>' + badge + ' ' + (m.nota||"") + imp + '</div>' +
+    '<div style="font-size:0.85em;color:#999">' + (m.punti > 0 ? "+" : "") + m.punti + 'pt &mdash; ' + formatData(m.created_at) + '</div></li>';
+  }).join("");
+  if (!mostraTutti && _storicoTutti.length > 10) {
+    html += '<li style="text-align:center;padding:12px;list-style:none"><button class="secondary" onclick="renderStorico(true)" style="font-size:0.85em;padding:6px 16px">Vedi tutti i movimenti (' + _storicoTutti.length + ')</button></li>';
+  }
+  if (mostraTutti && _storicoTutti.length > 10) {
+    html += '<li style="text-align:center;padding:12px;list-style:none"><button class="secondary" onclick="renderStorico(false)" style="font-size:0.85em;padding:6px 16px">Mostra meno</button></li>';
+  }
+  document.getElementById("storico-lista").innerHTML = html;
+}
+renderStorico(false);
 }
 
 // --- RICHIEDI PREMIO (lato cliente) ------------------------
@@ -1201,6 +1225,7 @@ mostraMsg('msg-reset-password','Dati verificati! Scegli la tua nuova password.',
 // --- STAMPA TESSERA PDF ---------------------------------
 async function stampaTessera() {
   if (!clienteLoggato) return;
+  if (!confirm("Vuoi stampare la tua tessera fedeltà in PDF?")) return;
   var c = clienteLoggato;
   var { jsPDF } = window.jspdf;
 
