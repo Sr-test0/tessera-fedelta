@@ -493,7 +493,7 @@ function generaToken() { var a = new Uint8Array(24); crypto.getRandomValues(a); 
 function salvaSessione(tipo, dati) {
   var scadenza = Date.now() + (tipo === 'admin' ? _SESSIONE_ADMIN_MS : _SESSIONE_CLIENTE_MS);
   var token = generaToken();
-  if (tipo === 'admin') { window._adminSessionToken = token; }
+  if (tipo === 'admin') { window._adminSessionToken = token; } else if (tipo === 'cliente') { window._clienteSessionToken = token; }
   localStorage.setItem('sessione_' + tipo, JSON.stringify({ dati: dati, scadenza: scadenza, token: token }));
 }
 function leggiSessione(tipo) {
@@ -507,6 +507,11 @@ function leggiSessione(tipo) {
   if (tipo === 'admin') {
     if (!s.token || !window._adminSessionToken || s.token !== window._adminSessionToken) {
       localStorage.removeItem('sessione_admin');
+      return null;
+    }
+  } else if (tipo === 'cliente') {
+    if (!s.token || !window._clienteSessionToken || s.token !== window._clienteSessionToken) {
+      localStorage.removeItem('sessione_cliente');
       return null;
     }
   }
