@@ -1104,14 +1104,26 @@ async function caricaImpostazioni() {
     document.getElementById('imp-risposta').value = r.data.risposta_hash;
   }
 }
-async function salvaImpostazioni() {
-  var domanda = document.getElementById('imp-domanda').value.trim();
-  var risposta = document.getElementById('imp-risposta').value.trim();
-  if (!domanda || !risposta) { mostraMsg('msg-impostazioni','Compila entrambi i campi.','error'); return; }
-  var r = await db.from('impostazioni').update({ domanda_accesso: domanda, risposta_accesso: risposta, updated_at: new Date().toISOString() }).eq('id',1);
-  if (r.error) { mostraMsg('msg-impostazioni','Errore: ' + r.error.message,'error'); return; }
-  mostraMsg('msg-impostazioni','Impostazioni salvate!','success');
-}
+  async function salvaImpostazioni() {
+    var domanda = document.getElementById('imp-domanda').value.trim();
+    var risposta = document.getElementById('imp-risposta').value.trim();
+    var pwdNew = document.getElementById('imp-pwd-new').value;
+    var pwdConfirm = document.getElementById('imp-pwd-confirm').value;
+    if (!domanda) { mostraMsg('msg-impostazioni','Inserisci la domanda.','error'); return; }
+    if (!risposta) { mostraMsg('msg-impostazioni','Inserisci la nuova risposta.','error'); return; }
+    if (pwdNew && pwdNew !== pwdConfirm) { mostraMsg('msg-impostazioni','Le password non coincidono.','error'); return; }
+    var rispostaHash = await hashPassword(risposta);
+    var updates = { domanda_accesso: domanda, risposta_accesso: risposta, risposta_hash: rispostaHash, updated_at: new Date().toISOString() };
+    if (pwdNew) { updates.admin_hash = await hashPassword(pwdNew); }
+    var r = await db.from('impostazioni').update(updates).eq('id',1);
+    if (r.error) { mostraMsg('msg-impostazioni','Errore: ' + r.error.message,'error'); return; }
+    window._rispostaCorretta = rispostaHash;
+    if (pwdNew) { window._adminHash = updates.admin_hash; }
+    document.getElementById('imp-risposta').value = '';
+    document.getElementById('imp-pwd-new').value = '';
+    document.getElementById('imp-pwd-confirm').value = '';
+    mostraMsg('msg-impostazioni','Impostazioni salvate!','success');
+  }
 
 // --- REGISTRAZIONE AUTONOMA ------------------------------
 function mostraFormRegistrazione() {
