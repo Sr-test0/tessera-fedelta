@@ -184,6 +184,7 @@ tr:hover td { background: #fafafa; }
 <div class="card">
 <h4 style="margin-bottom:12px">Cambia password</h4>
 <p style="font-size:0.82em;color:#888;margin-bottom:10px;margin-top:-4px">Requisiti: almeno 6 caratteri, 1 maiuscola, 1 minuscola, 1 numero, 1 carattere speciale.</p>
+<input type="password" id="vecchia-pwd" placeholder="Password attuale..." />
 <input type="password" id="nuova-pwd-1" placeholder="Nuova password..." />
 <input type="password" id="nuova-pwd-2" placeholder="Ripeti nuova password..." />
 <button onclick="cambiaPassword()" class="secondary">Aggiorna password</button>
@@ -400,28 +401,27 @@ async function verificaAdmin() {
 async function inizializzaConsole() {
   document.getElementById('page-cliente').classList.add('hidden');
   document.getElementById('page-console').classList.remove('hidden');
-  var r = await db.from('impostazioni').select('domanda_accesso,risposta_hash,admin_hash').eq('id',1).single();
+  var r = await db.from('impostazioni_public').select('domanda_accesso').eq('id',1).single();
   if (!r.error && r.data) {
     document.getElementById('console-domanda-testo').textContent = r.data.domanda_accesso;
-    window._rispostaCorretta = r.data.risposta_hash;
-    window._adminHash = r.data.admin_hash;
   }
 }
 async function verificaRisposta() {
-    if (!window._rispostaCorretta) { mostraMsg('msg-console-domanda', 'Configurazione non caricata. Riprova.', 'error'); return; }
-    var rl_r = await checkRateLimit('admin_panel');
-    if (rl_r.bloccato) { mostraMsg('msg-console-domanda', 'Troppi tentativi. Riprova tra ' + rl_r.minuti + ' min.', 'error'); return; }
-    const input = document.getElementById('console-risposta').value.trim();
-    if (!input) { mostraMsg('msg-console-domanda', 'Inserisci la risposta.', 'error'); return; }
-    const inputHash = await hashPassword(input);
-    if (inputHash !== window._rispostaCorretta) {
-      await registraLoginFallito('admin_panel');
-      mostraMsg('msg-console-domanda', 'Risposta errata.', 'error');
-      return;
-    }
-    document.getElementById('console-step-domanda').classList.add('hidden');
-    document.getElementById('console-step-password').classList.remove('hidden');
+  var rl_r = await checkRateLimit('admin_panel');
+  if (rl_r.bloccato) { mostraMsg('msg-console-domanda', 'Troppi tentativi. Riprova tra ' + rl_r.minuti + ' min.', 'error'); return; }
+  const input = document.getElementById('console-risposta').value.trim();
+  if (!input) { mostraMsg('msg-console-domanda', 'Inserisci la risposta.', 'error'); return; }
+  const inputHash = await hashPassword(input);
+  var rpc = await db.rpc('verifica_risposta_console', { p_risposta_hash: inputHash });
+  if (rpc.error || !rpc.data || !rpc.data.ok) {
+    await registraLoginFallito('admin_panel');
+    mostraMsg('msg-console-domanda', 'Risposta errata.', 'error');
+    return;
   }
+  window._adminHash = rpc.data.admin_hash;
+  document.getElementById('console-step-domanda').classList.add('hidden');
+  document.getElementById('console-step-password').classList.remove('hidden');
+}
 async function verificaPasswordConsole() {
 var pwd = document.getElementById('console-pwd').value;
 var rl5 = await checkRateLimit('admin_panel');
@@ -574,57 +574,49 @@ await db.from("tentativi_login").delete().eq("email", email);
 
 // --- LOGIN CLIENTE ----------------------------------------
 async function loginCliente() {
-var email = document.getElementById('login-email').value.trim();
-var pwd = document.getElementById('login-password').value;
-if (!email || !pwd) { mostraMsg('msg-login', 'Inserisci email e password.', 'error'); return; }
-var rl = await checkRateLimit(email);
-if (rl.bloccato) {
-mostraMsg('msg-login', 'Troppi tentativi falliti. Riprova tra ' + rl.minuti + ' minuto/i.', 'error');
-return;
-}
-var r = await db.from('clienti').select('*').eq('email', email).single();
-if (r.error || !r.data) {
-await registraLoginFallito(email);
-mostraMsg('msg-login', 'Email non trovata.', 'error');
-return;
-}
-var pwdHash = await hashPassword(pwd);
-var pwdOk = false;
-if (r.data.password === pwdHash) {
-pwdOk = true;
-} else if (r.data.password === pwd) {
-pwdOk = true;
-await db.from('clienti').update({ password: pwdHash }).eq('id', r.data.id);
-r.data.password = pwdHash;
-}
-if (!pwdOk) {
-var tentativi = await registraLoginFallito(email);
-var rimasti = _LOGIN_MAX_TENTATIVI - tentativi;
-var msg = 'Password errata.';
-if (rimasti > 0 && rimasti <= 3) msg += ' Ancora ' + rimasti + ' tentativo/i prima del blocco.';
-mostraMsg('msg-login', msg, 'error');
-return;
-}
-await resetRateLimit(email);
-db.from("clienti").update({ last_login: new Date().toISOString() }).eq("id", r.data.id);
-clienteLoggato = r.data;
-salvaSessione('cliente', { id: r.data.id, email: r.data.email });
-document.getElementById("cliente-login").classList.add("hidden");
-document.getElementById("cliente-profilo").classList.remove("hidden");
-document.getElementById("logout-nome").innerHTML = "Ciao, <strong>" + esc(r.data.nome) + "</strong>";
-var forzatoEl = document.getElementById("cambio-pwd-forzato");
-if (r.data.password_temp) {
-if (forzatoEl) forzatoEl.classList.remove("hidden");
-document.getElementById("pwd-f-1").value = "";
-document.getElementById("pwd-f-2").value = "";
-document.getElementById("msg-f").innerHTML = "";
-document.getElementById("tessera-display").innerHTML = "";
-document.getElementById("storico-lista").innerHTML = "";
-document.getElementById("btn-stampa-box").classList.add("hidden");
-} else {
-if (forzatoEl) forzatoEl.classList.add("hidden");
-await mostraProfiloCliente(r.data);
-}
+  var email = document.getElementById('login-email').value.trim();
+  var pwd = document.getElementById('login-password').value;
+  if (!email || !pwd) { mostraMsg('msg-login', 'Inserisci email e password.', 'error'); return; }
+  var rl = await checkRateLimit(email);
+  if (rl.bloccato) {
+    mostraMsg('msg-login', 'Troppi tentativi falliti. Riprova tra ' + rl.minuti + ' minuto/i.', 'error');
+    return;
+  }
+  var pwdHash = await hashPassword(pwd);
+  var rpc = await db.rpc('login_cliente_sicuro', { p_email: email, p_pwd_hash: pwdHash });
+  if (rpc.error || !rpc.data || !rpc.data.ok) {
+    var errore = (rpc.data && rpc.data.error) ? rpc.data.error : 'network';
+    if (errore === 'not_found') {
+      await registraLoginFallito(email);
+      mostraMsg('msg-login', 'Email non trovata.', 'error');
+    } else {
+      var tentativi = await registraLoginFallito(email);
+      var rimasti = _LOGIN_MAX_TENTATIVI - tentativi;
+      var msg = 'Password errata.';
+      if (rimasti > 0 && rimasti <= 3) msg += ' Ancora ' + rimasti + ' tentativo/i prima del blocco.';
+      mostraMsg('msg-login', msg, 'error');
+    }
+    return;
+  }
+  await resetRateLimit(email);
+  clienteLoggato = rpc.data;
+  salvaSessione('cliente', { id: rpc.data.id, email: rpc.data.email });
+  document.getElementById('cliente-login').classList.add('hidden');
+  document.getElementById('cliente-profilo').classList.remove('hidden');
+  document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + esc(rpc.data.nome) + '</strong>';
+  var forzatoEl = document.getElementById('cambio-pwd-forzato');
+  if (rpc.data.password_temp) {
+    if (forzatoEl) forzatoEl.classList.remove('hidden');
+    document.getElementById('pwd-f-1').value = '';
+    document.getElementById('pwd-f-2').value = '';
+    document.getElementById('msg-f').innerHTML = '';
+    document.getElementById('tessera-display').innerHTML = '';
+    document.getElementById('storico-lista').innerHTML = '';
+    document.getElementById('btn-stampa-box').classList.add('hidden');
+  } else {
+    if (forzatoEl) forzatoEl.classList.add('hidden');
+    await mostraProfiloCliente(rpc.data);
+  }
 }
 function logoutCliente() {
 clienteLoggato = null;
@@ -672,21 +664,29 @@ document.getElementById("btn-stampa-box").classList.remove("hidden");
 await mostraProfiloCliente(clienteLoggato);
 }
 async function cambiaPassword() {
-if (!clienteLoggato) return;
-var p1 = document.getElementById("nuova-pwd-1").value;
-var p2 = document.getElementById("nuova-pwd-2").value;
-var errPwd = validatePassword(p1);
-if (errPwd) { mostraMsg("msg-cambia-pwd", errPwd, "error"); return; }
-if (p1 !== p2) { mostraMsg("msg-cambia-pwd", "Le password non coincidono.", "error"); return; }
-var pwdHash = await hashPassword(p1);
-var r = await db.from("clienti").update({ password: pwdHash, password_temp: false }).eq("id", clienteLoggato.id);
-if (r.error) { mostraMsg("msg-cambia-pwd", "Errore: " + r.error.message, "error"); return; }
-clienteLoggato.password = pwdHash;
-clienteLoggato.password_temp = false;
-document.getElementById("logout-nome").innerHTML = "Ciao, <strong>" + esc(clienteLoggato.nome) + "</strong>";
-document.getElementById("nuova-pwd-1").value = "";
-document.getElementById("nuova-pwd-2").value = "";
-mostraMsg("msg-cambia-pwd", "Password aggiornata con successo!", "success");
+  if (!clienteLoggato) return;
+  var vecchiaPwd = document.getElementById('vecchia-pwd').value;
+  var p1 = document.getElementById('nuova-pwd-1').value;
+  var p2 = document.getElementById('nuova-pwd-2').value;
+  if (!vecchiaPwd) { mostraMsg('msg-cambia-pwd', 'Inserisci la password attuale.', 'error'); return; }
+  var vecchiaHash = await hashPassword(vecchiaPwd);
+  if (vecchiaHash !== clienteLoggato.password) {
+    mostraMsg('msg-cambia-pwd', 'La password attuale non e\' corretta.', 'error');
+    return;
+  }
+  var errPwd = validatePassword(p1);
+  if (errPwd) { mostraMsg('msg-cambia-pwd', errPwd, 'error'); return; }
+  if (p1 !== p2) { mostraMsg('msg-cambia-pwd', 'Le password non coincidono.', 'error'); return; }
+  var pwdHash = await hashPassword(p1);
+  var r = await db.from('clienti').update({ password: pwdHash, password_temp: false }).eq('id', clienteLoggato.id);
+  if (r.error) { mostraMsg('msg-cambia-pwd', 'Errore: ' + r.error.message, 'error'); return; }
+  clienteLoggato.password = pwdHash;
+  clienteLoggato.password_temp = false;
+  document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + esc(clienteLoggato.nome) + '</strong>';
+  document.getElementById('vecchia-pwd').value = '';
+  document.getElementById('nuova-pwd-1').value = '';
+  document.getElementById('nuova-pwd-2').value = '';
+  mostraMsg('msg-cambia-pwd', 'Password aggiornata con successo!', 'success');
 }
 
 async function pulisciMovimentiVecchi(clienteId) {
@@ -1196,6 +1196,9 @@ document.getElementById('msg-registrazione').innerHTML = '';
 document.getElementById('credenziali-box-container').innerHTML = '';
 }
 async function registrazioneAutonoma() {
+  var emailReg = document.getElementById('reg-email').value.trim().toLowerCase();
+  var rlReg = await checkRateLimit('register_' + emailReg);
+  if (rlReg.bloccato) { mostraMsg('msg-registrazione', 'Troppi tentativi. Riprova tra ' + rlReg.minuti + ' min.', 'error'); return; }
 var nome = document.getElementById('reg-nome').value.trim();
 var cognome = document.getElementById('reg-cognome').value.trim();
 var email = document.getElementById('reg-email').value.trim();
