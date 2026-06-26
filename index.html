@@ -1136,7 +1136,8 @@ async function esportaXLSX() {
 
 // --- IMPOSTAZIONI ----------------------------------------
 async function caricaImpostazioni() {
-  var r = await db.from('impostazioni').select('*').eq('id',1).single();
+  if (!adminAutenticato) return;
+  var r = await db.from('impostazioni').select('domanda_accesso').eq('id',1).single();
   if (!r.error && r.data) {
     document.getElementById('imp-domanda').value = r.data.domanda_accesso;
     document.getElementById('imp-risposta').value = '';
