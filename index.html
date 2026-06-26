@@ -324,6 +324,16 @@ tr:hover td { background: #fafafa; }
 </div>
 </div>
 <script>
+  function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
 var SUPABASE_URL = 'https://lixlgaxkjtjbtudjownk.supabase.co';
 var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpeGxnYXhranRqYnR1ZGpvd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MjQyNjIsImV4cCI6MjA5NzEwMDI2Mn0.o9P2VoMky3Khfz84XkPKPbds5adOWmNM_HRUiY8St-4';
 var ADMIN_PASSWORD_HASH = '8cbcda898806b5c4229fbf9c1a9bd166b41f217f3b9755a2f23ac0cd1e8a4c5b';
@@ -372,21 +382,23 @@ async function verificaAdmin() {
 async function inizializzaConsole() {
   document.getElementById('page-cliente').classList.add('hidden');
   document.getElementById('page-console').classList.remove('hidden');
-  var r = await db.from('impostazioni').select('domanda_accesso,risposta_accesso').eq('id',1).single();
+  var r = await db.from('impostazioni').select('domanda_accesso,risposta_hash').eq('id',1).single();
   if (!r.error && r.data) {
     document.getElementById('console-domanda-testo').textContent = r.data.domanda_accesso;
-    window._rispostaCorretta = r.data.risposta_accesso;
+    window._rispostaCorretta = r.data.risposta_hash;
   }
 }
-async function verificaRisposta() {
-  var risposta = document.getElementById('console-risposta').value.trim();
-  if (!risposta) return;
-  if (risposta && window._rispostaCorretta && risposta.toLowerCase() === window._rispostaCorretta.toLowerCase()) {
-    document.getElementById('console-step-domanda').classList.add('hidden');
-    document.getElementById('console-step-password').classList.remove('hidden');
-    document.getElementById('console-risposta').value = '';
-  } else { mostraMsg('msg-console-domanda','Risposta non corretta.','error'); }
-}
+async async function verificaRisposta() {
+    const input = document.getElementById('risposta-input').value.trim();
+    if (!input) { mostraMsg('risposta-msg', 'Inserisci la risposta.', 'error'); return; }
+    const inputHash = await hashPassword(input);
+    if (inputHash !== window._rispostaCorretta) {
+      mostraMsg('risposta-msg', 'Risposta errata.', 'error');
+      return;
+    }
+    document.getElementById('step-risposta').style.display = 'none';
+    document.getElementById('step-password').style.display = 'block';
+  }
 async function verificaPasswordConsole() {
 var pwd = document.getElementById('console-pwd').value;
 if (await hashPassword(pwd) === ADMIN_PASSWORD_HASH) {
@@ -433,11 +445,21 @@ function mostraMsg(id, testo, tipo) {
 function formatData(ts) {
   return new Date(ts).toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit', year:'numeric'});
 }
-function generaPasswordAuto(nome) {
-  var parti = nome.trim().split(' ');
-  var iniziali = parti.map(function(p){ return p.charAt(0).toUpperCase(); }).join('');
-  return iniziali + new Date().getFullYear();
-}
+function generaPasswordAuto(nome, cognome) {
+    const upper = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+    const lower = 'abcdefghjkmnpqrstuvwxyz';
+    const nums = '23456789';
+    const special = '!@#$';
+    const all = upper + lower + nums + special;
+    const arr = new Uint8Array(8);
+    crypto.getRandomValues(arr);
+    let pwd = upper[arr[0] % upper.length] + lower[arr[1] % lower.length]
+            + nums[arr[2] % nums.length] + special[arr[3] % special.length];
+    for (let i = 4; i < 8; i++) pwd += all[arr[i] % all.length];
+    const shuf = new Uint8Array(8);
+    crypto.getRandomValues(shuf);
+    return pwd.split('').sort((a, b) => shuf[pwd.indexOf(a)] - shuf[pwd.indexOf(b)]).join('');
+  }
 
 // --- GESTIONE SESSIONE -----------------------------------
 var _SESSIONE_CLIENTE_MS = 1 * 60 * 60 * 1000;  // 1 ora
@@ -667,8 +689,8 @@ premioHTML = '<div class="card" style="background:#fafafa;text-align:center;padd
 
 document.getElementById('tessera-display').innerHTML =
 '<div class="tessera">' +
-'<div class="tessera-nome">' + c.nome + '</div>' +
-'<div class="tessera-id">Tessera: ' + c.tessera_id + '</div>' +
+'<div class="tessera-nome">' + escapeHTML(c.nome) + '</div>' +
+'<div class="tessera-id">Tessera: ' + escapeHTML(c.tessera_id) + '</div>' +
 '<div class="tessera-punti">' + c.punti + '</div>' +
 '<div class="tessera-label">punti' + (c.punti < 5 ? ' &mdash; ancora ' + mancanti + ' per la tazza' : c.punti < 10 ? ' &mdash; ancora ' + mancanti + ' per il set' : ' &mdash; premio disponibile!') + '</div>' +
 '</div>' + puntiHTML(c.punti) +
@@ -764,8 +786,8 @@ async function cercaClienteAdmin() {
   // Mostra lista con email
   var html = risultati.map(function(c){
     return '<div class="cliente-risultato-item" onclick="selezionaClienteAdminById(\'' + c.id + '\')">'+
-      '<div class="nome">' + c.nome + '</div>' +
-      '<div class="email">' + c.email + ' &mdash; tessera: ' + c.tessera_id + '</div>' +
+      '<div class="nome">' + escapeHTML(c.nome) + '</div>' +
+      '<div class="email">' + escapeHTML(c.email) + ' &mdash; tessera: ' + escapeHTML(c.tessera_id) + '</div>' +
     '</div>';
   }).join('');
   document.getElementById('admin-risultati-items').innerHTML = html;
@@ -785,8 +807,8 @@ function selezionaClienteAdmin(c) {
   document.getElementById('admin-cliente-info').classList.remove('hidden');
   document.getElementById('admin-tessera-mini').innerHTML =
     '<div class="tessera" style="padding:16px;margin-bottom:16px">' +
-    '<div class="tessera-nome">' + c.nome + '</div>' +
-    '<div class="tessera-id">' + c.email + ' &mdash; ' + c.tessera_id + '</div>' +
+    '<div class="tessera-nome">' + escapeHTML(c.nome) + '</div>' +
+    '<div class="tessera-id">' + escapeHTML(c.email) + ' &mdash; ' + escapeHTML(c.tessera_id) + '</div>' +
     '<div style="font-size:1.8em;font-weight:800;margin:8px 0">' + c.punti + ' punti</div>' +
     '</div>' + puntiHTML(c.punti);
 }
@@ -909,8 +931,8 @@ clienti.map(function(c) {
 var pwdLabel = c.password_temp
 ? '<span style="color:#e65100;font-size:0.82em">⚠ temp</span>'
 : '<span style="color:#2e7d32;font-size:0.82em">✓ impostata</span>';
-return '<tr><td><strong>' + c.nome + '</strong>' + (c.origine === 'autonoma' ? '<span class="badge-ra">RA</span>' : '') + '<div style="font-size:0.8em;color:#999">' + c.tessera_id + '</div></td>' +
-'<td style="font-size:0.85em">' + c.email + '</td>' +
+return '<tr><td><strong>' + escapeHTML(c.nome) + '</strong>' + (c.origine === 'autonoma' ? '<span class="badge-ra">RA</span>' : '') + '<div style="font-size:0.8em;color:#999">' + escapeHTML(c.tessera_id) + '</div></td>' +
+'<td style="font-size:0.85em">' + escapeHTML(c.email) + '</td>' +
 '<td><span class="punti-badge">' + c.punti + '</span></td>' +
 '<td style="text-align:center">' + (c.premi_riscattati||0) + '</td>' +
 '<td>' + pwdLabel + '</td>' +
@@ -1078,7 +1100,7 @@ async function caricaImpostazioni() {
   var r = await db.from('impostazioni').select('*').eq('id',1).single();
   if (!r.error && r.data) {
     document.getElementById('imp-domanda').value = r.data.domanda_accesso;
-    document.getElementById('imp-risposta').value = r.data.risposta_accesso;
+    document.getElementById('imp-risposta').value = r.data.risposta_hash;
   }
 }
 async function salvaImpostazioni() {
@@ -1144,8 +1166,8 @@ async function visualizzaTessera(clienteId) {
   var mancanti = target - c.punti;
   document.getElementById('admin-visualizza-tessera').innerHTML =
     '<div class="tessera">' +
-    '<div class="tessera-nome">' + c.nome + '</div>' +
-    '<div class="tessera-id">Tessera: ' + c.tessera_id + ' &mdash; ' + c.email + '</div>' +
+    '<div class="tessera-nome">' + escapeHTML(c.nome) + '</div>' +
+    '<div class="tessera-id">Tessera: ' + escapeHTML(c.tessera_id) + ' &mdash; ' + escapeHTML(c.email) + '</div>' +
     '<div class="tessera-punti">' + c.punti + '</div>' +
     '<div class="tessera-label">punti &mdash; ancora ' + mancanti + ' per ' + (target === 5 ? 'la tazza' : 'il set') + '</div>' +
     '</div>' +
