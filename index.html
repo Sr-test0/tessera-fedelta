@@ -388,7 +388,7 @@ async function inizializzaConsole() {
     window._rispostaCorretta = r.data.risposta_hash;
   }
 }
-async async function verificaRisposta() {
+async function verificaRisposta() {
     const input = document.getElementById('risposta-input').value.trim();
     if (!input) { mostraMsg('risposta-msg', 'Inserisci la risposta.', 'error'); return; }
     const inputHash = await hashPassword(input);
