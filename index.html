@@ -368,7 +368,7 @@ function richiestaAdmin() {
 }
 async function verificaAdmin() {
   var pwd = document.getElementById('admin-pwd').value;
-  if (await hashPassword(pwd) === ADMIN_PASSWORD_HASH) {
+  if (await hashPassword(pwd) === window._adminHash) {
     adminAutenticato = true;
     document.getElementById('overlay-admin').classList.add('hidden');
     document.getElementById('admin-pwd').value = '';
@@ -382,10 +382,11 @@ async function verificaAdmin() {
 async function inizializzaConsole() {
   document.getElementById('page-cliente').classList.add('hidden');
   document.getElementById('page-console').classList.remove('hidden');
-  var r = await db.from('impostazioni').select('domanda_accesso,risposta_hash').eq('id',1).single();
+  var r = await db.from('impostazioni').select('domanda_accesso,risposta_hash,admin_hash').eq('id',1).single();
   if (!r.error && r.data) {
     document.getElementById('console-domanda-testo').textContent = r.data.domanda_accesso;
     window._rispostaCorretta = r.data.risposta_hash;
+    window._adminHash = r.data.admin_hash;
   }
 }
 async function verificaRisposta() {
@@ -401,7 +402,7 @@ async function verificaRisposta() {
   }
 async function verificaPasswordConsole() {
 var pwd = document.getElementById('console-pwd').value;
-if (await hashPassword(pwd) === ADMIN_PASSWORD_HASH) {
+if (await hashPassword(pwd) === window._adminHash) {
 adminAutenticato = true;
 salvaSessione('admin', { autenticato: true });
 document.getElementById('page-console').classList.add('hidden');
