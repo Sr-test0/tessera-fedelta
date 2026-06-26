@@ -611,7 +611,7 @@ clienteLoggato = r.data;
 salvaSessione('cliente', { id: r.data.id, email: r.data.email });
 document.getElementById("cliente-login").classList.add("hidden");
 document.getElementById("cliente-profilo").classList.remove("hidden");
-document.getElementById("logout-nome").innerHTML = "Ciao, <strong>" + r.data.nome + "</strong>";
+document.getElementById("logout-nome").innerHTML = "Ciao, <strong>" + esc(r.data.nome) + "</strong>";
 var forzatoEl = document.getElementById("cambio-pwd-forzato");
 if (r.data.password_temp) {
 if (forzatoEl) forzatoEl.classList.remove("hidden");
@@ -666,7 +666,7 @@ var r = await db.from("clienti").update({ password: pwdHash, password_temp: fals
 if (r.error) { mostraMsg("msg-f", "Errore: " + r.error.message, "error"); return; }
 clienteLoggato.password = pwdHash;
 clienteLoggato.password_temp = false;
-document.getElementById("logout-nome").innerHTML = "Ciao, <strong>" + clienteLoggato.nome + "</strong>";
+document.getElementById("logout-nome").innerHTML = "Ciao, <strong>" + esc(clienteLoggato.nome) + "</strong>";
 document.getElementById("cambio-pwd-forzato").classList.add("hidden");
 document.getElementById("btn-stampa-box").classList.remove("hidden");
 await mostraProfiloCliente(clienteLoggato);
@@ -683,7 +683,7 @@ var r = await db.from("clienti").update({ password: pwdHash, password_temp: fals
 if (r.error) { mostraMsg("msg-cambia-pwd", "Errore: " + r.error.message, "error"); return; }
 clienteLoggato.password = pwdHash;
 clienteLoggato.password_temp = false;
-document.getElementById("logout-nome").innerHTML = "Ciao, <strong>" + clienteLoggato.nome + "</strong>";
+document.getElementById("logout-nome").innerHTML = "Ciao, <strong>" + esc(clienteLoggato.nome) + "</strong>";
 document.getElementById("nuova-pwd-1").value = "";
 document.getElementById("nuova-pwd-2").value = "";
 mostraMsg("msg-cambia-pwd", "Password aggiornata con successo!", "success");
@@ -755,8 +755,8 @@ function renderStorico(mostraTutti) {
     m.tipo === "benvenuto" ? '<span class="badge badge-benvenuto">Benvenuto</span>' :
     '<span class="badge badge-manuale">Manuale</span>';
     var imp = m.importo_euro ? ' &mdash; EUR ' + Number(m.importo_euro).toFixed(2) : '';
-    return '<li><div>' + badge + ' ' + (m.nota||"") + imp + '</div>' +
-    '<div style="font-size:0.85em;color:#999">' + (m.punti > 0 ? "+" : "") + m.punti + 'pt &mdash; ' + formatData(m.created_at) + '</div></li>';
+    return '<li><div>' + badge + ' ' + esc(m.nota)||"") + imp + '</div>' +
+    '<div style="font-size:0.85em;color:#999">' + (m.punti > 0 ? "+" : "") + esc(m.punti) + 'pt &mdash; ' + formatData(m.created_at) + '</div></li>';
   }).join("");
   if (!mostraTutti && _storicoTutti.length > 10) {
     html += '<li style="text-align:center;padding:12px;list-style:none"><button class="secondary" onclick="renderStorico(true)" style="font-size:0.85em;padding:6px 16px">Vedi tutti i movimenti (' + _storicoTutti.length + ')</button></li>';
@@ -1026,8 +1026,8 @@ async function caricaNotifiche() {
   r.data.forEach(function(n) {
     var d = n.created_at ? new Date(n.created_at).toLocaleDateString('it-IT') : '';
     h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #ffeeba;">';
-    h += '<span><strong>' + (n.cliente_nome||'Cliente') + '</strong> &rarr; ' + (n.premio||'premio') + ' <small style="color:#888">(' + d + ')</small></span>';
-    h += '<button data-id="' + n.id + '" onclick="segnaLettoNotifica(this.dataset.id)" style="background:#28a745;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;">Segna letto</button>';
+    h += '<span><strong>' + esc(n.cliente_nome)||'Cliente') + '</strong> &rarr; ' + esc(n.premio)||'premio') + ' <small style="color:#888">(' + d + ')</small></span>';
+    h += '<button data-id="' + esc(n.id) + '" onclick="segnaLettoNotifica(this.dataset.id)" style="background:#28a745;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;">Segna letto</button>';
     h += '</div>';
   });
   h += '</div>';
@@ -1107,7 +1107,7 @@ async function esportaXLSX() {
   var totEurAll = movimenti.filter(function(m){ return m.tipo==='acquisto' && m.importo_euro; })
     .reduce(function(s,m){ return s + parseFloat(m.importo_euro||0); }, 0);
   var totPuntiEmessi = movimenti.filter(function(m){ return m.punti > 0; })
-    .reduce(function(s,m){ return s + m.punti; }, 0);
+    .reduce(function(s,m){ return s + esc(m.punti); }, 0);
   var totPremi = clienti.reduce(function(s,c){ return s + (c.premi_riscattati||0); }, 0);
   var oggi = new Date().toLocaleDateString('it-IT');
   var wsRiepData = [
@@ -1256,8 +1256,8 @@ async function visualizzaTessera(clienteId) {
         m.tipo === 'benvenuto' ? '<span class="badge badge-benvenuto">Benvenuto</span>' :
         '<span class="badge badge-manuale">Manuale</span>';
       var imp = m.importo_euro ? ' &mdash; EUR ' + Number(m.importo_euro).toFixed(2) : '';
-      return '<li><div>' + badge + ' ' + (m.nota||'') + imp + '</div>' +
-        '<div style="font-size:0.85em;color:#999">' + (m.punti > 0 ? '+' : '') + m.punti + 'pt &mdash; ' + formatData(m.created_at) + '</div></li>';
+      return '<li><div>' + badge + ' ' + esc(m.nota)||'') + imp + '</div>' +
+        '<div style="font-size:0.85em;color:#999">' + (m.punti > 0 ? '+' : '') + esc(m.punti) + 'pt &mdash; ' + formatData(m.created_at) + '</div></li>';
     }).join('');
   // Nascondi i tab sub e mostra il pannello visualizza
   document.getElementById('sub-tabs').classList.add('hidden');
@@ -1502,7 +1502,7 @@ document.addEventListener('click', function() {
       clienteLoggato = r.data;
       document.getElementById('cliente-login').classList.add('hidden');
       document.getElementById('cliente-profilo').classList.remove('hidden');
-      document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + r.data.nome + '</strong>' +
+      document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + esc(r.data.nome) + '</strong>' +
         (r.data.password_temp ? '<span class="pass-temp-badge">⚠ password temporanea</span>' : '');
       await mostraProfiloCliente(r.data);
     } else {
