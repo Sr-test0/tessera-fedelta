@@ -401,10 +401,14 @@ async function inizializzaConsole() {
   }
 }
 async function verificaRisposta() {
+    if (!window._rispostaCorretta) { mostraMsg('msg-console-domanda', 'Configurazione non caricata. Riprova.', 'error'); return; }
+    var rl_r = await checkRateLimit('admin_panel');
+    if (rl_r.bloccato) { mostraMsg('msg-console-domanda', 'Troppi tentativi. Riprova tra ' + rl_r.minuti + ' min.', 'error'); return; }
     const input = document.getElementById('console-risposta').value.trim();
     if (!input) { mostraMsg('msg-console-domanda', 'Inserisci la risposta.', 'error'); return; }
     const inputHash = await hashPassword(input);
     if (inputHash !== window._rispostaCorretta) {
+      await registraLoginFallito('admin_panel');
       mostraMsg('msg-console-domanda', 'Risposta errata.', 'error');
       return;
     }
