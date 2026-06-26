@@ -933,7 +933,8 @@ function apriResetPassword(clienteId, nomeCliente) {
 }
 async function confermaResetPassword() {
 var nuovaPwd = document.getElementById('reset-pwd-input').value.trim();
-if (!nuovaPwd || nuovaPwd.length < 4) { mostraMsg('msg-reset-pwd', 'Password di almeno 4 caratteri.', 'error'); return; }
+var errAdminReset = validatePassword(nuovaPwd);
+if (errAdminReset) { mostraMsg('msg-reset-pwd', errAdminReset, 'error'); return; }
 var pwdHash = await hashPassword(nuovaPwd);
 var r = await db.from('clienti').update({ password: pwdHash, password_temp: true }).eq('id', resetPwdClienteId);
 if (r.error) { mostraMsg('msg-reset-pwd', 'Errore: ' + r.error.message, 'error'); return; }
@@ -1274,7 +1275,8 @@ async function eseguiResetPassword() {
 if (_resetClienteVerificato) {
 var p1 = document.getElementById('reset-nuova-pwd').value;
 var p2 = document.getElementById('reset-nuova-pwd2').value;
-if (!p1 || p1.length < 4) { mostraMsg('msg-reset-password','La password deve essere di almeno 4 caratteri.','error'); return; }
+var errReset = validatePassword(p1);
+if (errReset) { mostraMsg('msg-reset-password', errReset, 'error'); return; }
 if (p1 !== p2) { mostraMsg('msg-reset-password','Le password non coincidono.','error'); return; }
 var pwdHash = await hashPassword(p1);
 var r = await db.from('clienti').update({ password: pwdHash, password_temp: false }).eq('id', _resetClienteVerificato.id);
