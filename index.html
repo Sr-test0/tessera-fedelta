@@ -755,7 +755,7 @@ function renderStorico(mostraTutti) {
     m.tipo === "benvenuto" ? '<span class="badge badge-benvenuto">Benvenuto</span>' :
     '<span class="badge badge-manuale">Manuale</span>';
     var imp = m.importo_euro ? ' &mdash; EUR ' + Number(m.importo_euro).toFixed(2) : '';
-    return '<li><div>' + badge + ' ' + esc(m.nota)||"") + imp + '</div>' +
+    return '<li><div>' + badge + ' ' + esc(m.nota||"") + imp + '</div>' +
     '<div style="font-size:0.85em;color:#999">' + (m.punti > 0 ? "+" : "") + esc(m.punti) + 'pt &mdash; ' + formatData(m.created_at) + '</div></li>';
   }).join("");
   if (!mostraTutti && _storicoTutti.length > 10) {
@@ -1026,7 +1026,7 @@ async function caricaNotifiche() {
   r.data.forEach(function(n) {
     var d = n.created_at ? new Date(n.created_at).toLocaleDateString('it-IT') : '';
     h += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #ffeeba;">';
-    h += '<span><strong>' + esc(n.cliente_nome)||'Cliente') + '</strong> &rarr; ' + esc(n.premio)||'premio') + ' <small style="color:#888">(' + d + ')</small></span>';
+    h += '<span><strong>' + esc(n.cliente_nome||'Cliente') + '</strong> &rarr; ' + esc(n.premio||'premio') + ' <small style="color:#888">(' + d + ')</small></span>';
     h += '<button data-id="' + esc(n.id) + '" onclick="segnaLettoNotifica(this.dataset.id)" style="background:#28a745;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;">Segna letto</button>';
     h += '</div>';
   });
@@ -1256,7 +1256,7 @@ async function visualizzaTessera(clienteId) {
         m.tipo === 'benvenuto' ? '<span class="badge badge-benvenuto">Benvenuto</span>' :
         '<span class="badge badge-manuale">Manuale</span>';
       var imp = m.importo_euro ? ' &mdash; EUR ' + Number(m.importo_euro).toFixed(2) : '';
-      return '<li><div>' + badge + ' ' + esc(m.nota)||'') + imp + '</div>' +
+      return '<li><div>' + badge + ' ' + esc(m.nota||'') + imp + '</div>' +
         '<div style="font-size:0.85em;color:#999">' + (m.punti > 0 ? '+' : '') + esc(m.punti) + 'pt &mdash; ' + formatData(m.created_at) + '</div></li>';
     }).join('');
   // Nascondi i tab sub e mostra il pannello visualizza
