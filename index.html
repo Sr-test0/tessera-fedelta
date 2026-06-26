@@ -344,8 +344,6 @@ tr:hover td { background: #fafafa; }
 var SUPABASE_URL = 'https://lixlgaxkjtjbtudjownk.supabase.co';
 var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpeGxnYXhranRqYnR1ZGpvd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MjQyNjIsImV4cCI6MjA5NzEwMDI2Mn0.o9P2VoMky3Khfz84XkPKPbds5adOWmNM_HRUiY8St-4';
 var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-var SUPABASE_SERVICE = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpeGxnYXhranRqYnR1ZGpvd25rIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTUyNDI2MiwiZXhwIjoyMDk3MTAwMjYyfQ.blK4azJ9TRf3XKHa-6nde4gon6QS6J9MPvlI9JNqsPs';
-var dbAdmin = supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE, { auth: { persistSession: false } });
 
 // Security: sanitize user data before inserting into DOM
 function esc(str) {
@@ -847,7 +845,7 @@ async function cercaClienteAdmin() {
 
 var _cacheClientiCerca = {};
 async function selezionaClienteAdminById(id) {
-  var r = await dbAdmin.from('clienti').select('*').eq('id', id).single();
+  var r = await db.from('clienti').select('*').eq('id', id).single();
   if (r.error || !r.data) return;
   document.getElementById('admin-risultati-lista').classList.add('hidden');
   selezionaClienteAdmin(r.data);
@@ -881,14 +879,14 @@ if (!importo || importo <= 0) { mostraMsg('msg-admin-punti', 'Inserisci importo 
 var ordineId = document.getElementById('ordine-id').value.trim() || null;
 var nota = document.getElementById('nota-acquisto').value.trim() || null;
 var dataAcquisto = document.getElementById('data-acquisto').value || null;
-var r = await dbAdmin.rpc('aggiungi_punti', { p_cliente_id: clienteAdminCorrente.id, p_importo: importo, p_ordine_id: ordineId, p_nota: nota });
+var r = await db.rpc('aggiungi_punti', { p_cliente_id: clienteAdminCorrente.id, p_importo: importo, p_ordine_id: ordineId, p_nota: nota });
 if (r.error) { mostraMsg('msg-admin-punti', 'Errore: ' + r.error.message, 'error'); return; }
 var res = r.data;
 // Se c'è una data personalizzata, aggiorna il movimento appena creato
 if (dataAcquisto) {
-var mvRecente = await dbAdmin.from('movimenti').select('id').eq('cliente_id', clienteAdminCorrente.id).eq('tipo','acquisto').order('created_at',{ascending:false}).limit(1).single();
+var mvRecente = await db.from('movimenti').select('id').eq('cliente_id', clienteAdminCorrente.id).eq('tipo','acquisto').order('created_at',{ascending:false}).limit(1).single();
 if (!mvRecente.error && mvRecente.data) {
-await dbAdmin.from('movimenti').update({ created_at: dataAcquisto + 'T12:00:00.000Z' }).eq('id', mvRecente.data.id);
+await db.from('movimenti').update({ created_at: dataAcquisto + 'T12:00:00.000Z' }).eq('id', mvRecente.data.id);
 }
 }
 await pulisciMovimentiVecchi(clienteAdminCorrente.id);
@@ -901,7 +899,7 @@ document.getElementById('importo-euro').value = '';
 document.getElementById('data-acquisto').value = '';
 document.getElementById('ordine-id').value = '';
 document.getElementById('nota-acquisto').value = '';
-var aggiornato = await dbAdmin.from('clienti').select('*').eq('id', clienteAdminCorrente.id).single();
+var aggiornato = await db.from('clienti').select('*').eq('id', clienteAdminCorrente.id).single();
 if (!aggiornato.error) selezionaClienteAdmin(aggiornato.data);
 }
 async function aggiungiPuntiManuali() {
@@ -911,13 +909,13 @@ async function aggiungiPuntiManuali() {
   if (!n || isNaN(parseInt(n))) return;
   var punti = parseInt(n);
   var nota = prompt('Nota:') || 'Aggiunta manuale';
-  await dbAdmin.from('movimenti').insert({ cliente_id: clienteAdminCorrente.id, tipo: 'manuale', punti: punti, nota: nota });
+  await db.from('movimenti').insert({ cliente_id: clienteAdminCorrente.id, tipo: 'manuale', punti: punti, nota: nota });
   await pulisciMovimentiVecchi(clienteAdminCorrente.id);
   var nuovi = clienteAdminCorrente.punti + punti;
   var finali = nuovi;
-  await dbAdmin.from('clienti').update({ punti: finali, punti_totali: clienteAdminCorrente.punti_totali + punti }).eq('id', clienteAdminCorrente.id);
+  await db.from('clienti').update({ punti: finali, punti_totali: clienteAdminCorrente.punti_totali + punti }).eq('id', clienteAdminCorrente.id);
   mostraMsg('msg-admin-punti', '+' + punti + ' punti manuali aggiunti', 'success');
-  var aggiornato = await dbAdmin.from('clienti').select('*').eq('id', clienteAdminCorrente.id).single();
+  var aggiornato = await db.from('clienti').select('*').eq('id', clienteAdminCorrente.id).single();
   if (!aggiornato.error) selezionaClienteAdmin(aggiornato.data);
 }
 
@@ -932,7 +930,7 @@ var note = document.getElementById('nuovo-note').value.trim() || null;
 if (!nome || !email) { mostraMsg('msg-nuovo-cliente', 'Nome ed email obbligatori.', 'error'); return; }
 var pwdPlain = pwdInput || generaPasswordAuto(nome);
 var pwdHash = await hashPassword(pwdPlain);
-var r = await dbAdmin.from('clienti').insert({ nome: nome, email: email, telefono: tel, note: note, password: pwdHash, password_temp: true }).select().single();
+var r = await db.from('clienti').insert({ nome: nome, email: email, telefono: tel, note: note, password: pwdHash, password_temp: true }).select().single();
 if (r.error) { mostraMsg('msg-nuovo-cliente', r.error.code === '23505' ? 'Email già registrata!' : 'Errore: ' + r.error.message, 'error'); return; }
 mostraMsg('msg-nuovo-cliente',
 'Tessera creata! ID: <strong>' + r.data.tessera_id + '</strong><br>' +
@@ -955,7 +953,7 @@ var nuovaPwd = document.getElementById('reset-pwd-input').value.trim();
 var errAdminReset = validatePassword(nuovaPwd);
 if (errAdminReset) { mostraMsg('msg-reset-pwd', errAdminReset, 'error'); return; }
 var pwdHash = await hashPassword(nuovaPwd);
-var r = await dbAdmin.from('clienti').update({ password: pwdHash, password_temp: true }).eq('id', resetPwdClienteId);
+var r = await db.from('clienti').update({ password: pwdHash, password_temp: true }).eq('id', resetPwdClienteId);
 if (r.error) { mostraMsg('msg-reset-pwd', 'Errore: ' + r.error.message, 'error'); return; }
 document.getElementById('modal-reset-pwd').classList.add('hidden');
 caricaClienti();
@@ -967,7 +965,7 @@ var _clientiPageSize = 50;
 async function caricaClienti(reset) {
   if (!adminAutenticato) return;
   if (reset !== false) { _clientiOffset = 0; tuttiClienti = []; }
-  var r = await dbAdmin.from("clienti").select("*").order("created_at", { ascending: false }).range(_clientiOffset, _clientiOffset + _clientiPageSize - 1);
+  var r = await db.from("clienti").select("*").order("created_at", { ascending: false }).range(_clientiOffset, _clientiOffset + _clientiPageSize - 1);
   if (r.error) return;
   var nuovi = r.data || [];
   tuttiClienti = tuttiClienti.concat(nuovi);
@@ -1000,7 +998,7 @@ return '<tr><td><strong>' + escapeHTML(c.nome) + '</strong>' + (c.origine === 'a
 }
 
 async function aggiungiPuntiDaElenco(clienteId) {
-var r = await dbAdmin.from('clienti').select('*').eq('id', clienteId).single();
+var r = await db.from('clienti').select('*').eq('id', clienteId).single();
 if (r.error || !r.data) return;
 selezionaClienteAdmin(r.data);
 mostraSubTab('sub-aggiungi');
@@ -1013,14 +1011,14 @@ async function confermaEliminaCliente(clienteId, nomeCliente) {
   if (!confirm('Eliminare la tessera di ' + nomeCliente + '?\nVerranno cancellati anche tutti i movimenti. Questa azione è irreversibile.')) return;
   var conferma7 = prompt('Seconda conferma richiesta.\nScrivi ELIMINA in maiuscolo per procedere:');
   if (conferma7 !== 'ELIMINA') { alert('Eliminazione annullata.'); return; }
-  var r = await dbAdmin.from('clienti').delete().eq('id', clienteId);
+  var r = await db.from('clienti').delete().eq('id', clienteId);
   if (r.error) { alert('Errore: ' + r.error.message); return; }
   caricaClienti();
 }
 
 // --- ADMIN: NOTIFICHE PREMI ---
 async function caricaNotifiche() {
-  var r = await dbAdmin.from('notifiche').select('*').eq('letto', false).order('created_at', {ascending:false});
+  var r = await db.from('notifiche').select('*').eq('letto', false).order('created_at', {ascending:false});
   var el = document.getElementById('notifiche-admin');
   if (r.error || !r.data || r.data.length === 0) { el.innerHTML = ''; return; }
   var h = '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:16px;margin-bottom:12px;">';
@@ -1036,7 +1034,7 @@ async function caricaNotifiche() {
   el.innerHTML = h;
 }
 async function segnaLettoNotifica(id) {
-  await dbAdmin.from('notifiche').update({ letto: true }).eq('id', id);
+  await db.from('notifiche').update({ letto: true }).eq('id', id);
   caricaNotifiche();
 }
 
@@ -1047,11 +1045,11 @@ async function avviaExport() {
 async function esportaXLSX() {
   if (!adminAutenticato) return;
   mostraMsg('msg-export','Preparazione export in corso...','info');
-  var rc = await dbAdmin.from('clienti').select('*').order('created_at', {ascending: false});
+  var rc = await db.from('clienti').select('*').order('created_at', {ascending: false});
   if (rc.error) { mostraMsg('msg-export','Errore: ' + rc.error.message,'error'); return; }
   var clienti = rc.data || [];
   if (clienti.length === 0) { mostraMsg('msg-export','Nessun cliente presente.','error'); return; }
-  var rm = await dbAdmin.from('movimenti').select('*').order('created_at', {ascending: false});
+  var rm = await db.from('movimenti').select('*').order('created_at', {ascending: false});
   var movimenti = rm.data || [];
   var movPerCliente = {};
   movimenti.forEach(function(m){
@@ -1157,7 +1155,7 @@ async function esportaXLSX() {
 // --- IMPOSTAZIONI ----------------------------------------
 async function caricaImpostazioni() {
   if (!adminAutenticato) return;
-  var r = await dbAdmin.from('impostazioni').select('domanda_accesso').eq('id',1).single();
+  var r = await db.from('impostazioni').select('domanda_accesso').eq('id',1).single();
   if (!r.error && r.data) {
     document.getElementById('imp-domanda').value = r.data.domanda_accesso;
     document.getElementById('imp-risposta').value = '';
@@ -1175,7 +1173,7 @@ async function caricaImpostazioni() {
     var rispostaHash = await hashPassword(risposta);
     var updates = { domanda_accesso: domanda, risposta_hash: rispostaHash, updated_at: new Date().toISOString() };
     if (pwdNew) { updates.admin_hash = await hashPassword(pwdNew); }
-    var r = await dbAdmin.from('impostazioni').update(updates).eq('id',1);
+    var r = await db.from('impostazioni').update(updates).eq('id',1);
     if (r.error) { mostraMsg('msg-impostazioni','Errore: ' + r.error.message,'error'); return; }
     window._rispostaCorretta = rispostaHash;
     if (pwdNew) { window._adminHash = updates.admin_hash; }
@@ -1206,19 +1204,19 @@ if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { mostraMsg('msg-registrazione','
 var nomeCompleto = nome + ' ' + cognome;
 var pwdPlain = generaPasswordAuto(nomeCompleto);
 var pwdHash = await hashPassword(pwdPlain);
-var check = await dbAdmin.from('clienti').select('id').eq('email', email).maybeSingle();
+var check = await db.from('clienti').select('id').eq('email', email).maybeSingle();
 if (check.data) {
 document.getElementById('msg-registrazione').innerHTML =
 '<div class="alert alert-error">Questa email è già registrata con una tessera SR Art.<br><br>' +
 '<button onclick="tornaAlLogin();mostraFormResetPassword();" style="width:100%;margin-top:4px">🔑 Recupera la tua password</button></div>';
 return;
 }
-var r = await dbAdmin.from('clienti').insert({ nome: nomeCompleto, email: email, password: pwdHash, password_temp: true, origine: 'autonoma' }).select().single();
+var r = await db.from('clienti').insert({ nome: nomeCompleto, email: email, password: pwdHash, password_temp: true, origine: 'autonoma' }).select().single();
 if (r.error) { mostraMsg('msg-registrazione', r.error.code === '23505' ? 'Email già registrata!' : 'Errore: ' + r.error.message, 'error'); return; }
 var nuovoCliente = r.data;
-await dbAdmin.from('movimenti').insert({ cliente_id: nuovoCliente.id, tipo: 'benvenuto', punti: 1, nota: 'Punto di benvenuto' });
+await db.from('movimenti').insert({ cliente_id: nuovoCliente.id, tipo: 'benvenuto', punti: 1, nota: 'Punto di benvenuto' });
 await pulisciMovimentiVecchi(nuovoCliente.id);
-await dbAdmin.from('clienti').update({ punti: 1, punti_totali: 1 }).eq('id', nuovoCliente.id);
+await db.from('clienti').update({ punti: 1, punti_totali: 1 }).eq('id', nuovoCliente.id);
 document.getElementById('credenziali-box-container').innerHTML =
 '<div class="credenziali-box">' +
 '<div class="titolo">⚠️ Salva le tue credenziali di accesso</div>' +
@@ -1231,10 +1229,10 @@ document.getElementById('msg-registrazione').innerHTML = '<div class="alert aler
 
 // --- ADMIN: VISUALIZZA TESSERA --------------------------
 async function visualizzaTessera(clienteId) {
-  var r = await dbAdmin.from('clienti').select('*').eq('id', clienteId).single();
+  var r = await db.from('clienti').select('*').eq('id', clienteId).single();
   if (r.error || !r.data) return;
   var c = r.data;
-  var mv = await dbAdmin.from('movimenti').select('*').eq('cliente_id', c.id).order('created_at', {ascending: false});
+  var mv = await db.from('movimenti').select('*').eq('cliente_id', c.id).order('created_at', {ascending: false});
   var target = c.punti < 5 ? 5 : 10;
   var mancanti = target - c.punti;
   document.getElementById('admin-visualizza-tessera').innerHTML =
@@ -1298,7 +1296,7 @@ var errReset = validatePassword(p1);
 if (errReset) { mostraMsg('msg-reset-password', errReset, 'error'); return; }
 if (p1 !== p2) { mostraMsg('msg-reset-password','Le password non coincidono.','error'); return; }
 var pwdHash = await hashPassword(p1);
-var r = await dbAdmin.from('clienti').update({ password: pwdHash, password_temp: false }).eq('id', _resetClienteVerificato.id);
+var r = await db.from('clienti').update({ password: pwdHash, password_temp: false }).eq('id', _resetClienteVerificato.id);
 if (r.error) { mostraMsg('msg-reset-password','Errore: ' + r.error.message,'error'); return; }
 _resetClienteVerificato = null;
 document.getElementById('cliente-reset-pwd').classList.add('hidden');
@@ -1309,7 +1307,7 @@ return;
 var email = document.getElementById('reset-email').value.trim();
 var tesseraId = document.getElementById('reset-tessera-id').value.trim().toUpperCase();
 if (!email || !tesseraId) { mostraMsg('msg-reset-password','Inserisci email e codice tessera.','error'); return; }
-var r = await dbAdmin.from('clienti').select('*').eq('email', email).eq('tessera_id', tesseraId).maybeSingle();
+var r = await db.from('clienti').select('*').eq('email', email).eq('tessera_id', tesseraId).maybeSingle();
 if (r.error || !r.data) {
 mostraMsg('msg-reset-password','Nessun account trovato con questi dati. Controlla email e codice tessera.','error');
 return;
@@ -1499,7 +1497,7 @@ document.addEventListener('click', function() {
   // Controlla sessione cliente
   var sessCliente = leggiSessione('cliente');
   if (sessCliente && sessCliente.id) {
-    var r = await dbAdmin.from('clienti').select('*').eq('id', sessCliente.id).single();
+    var r = await db.from('clienti').select('*').eq('id', sessCliente.id).single();
     if (!r.error && r.data) {
       clienteLoggato = r.data;
       document.getElementById('cliente-login').classList.add('hidden');
