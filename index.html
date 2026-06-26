@@ -343,7 +343,6 @@ tr:hover td { background: #fafafa; }
 
 var SUPABASE_URL = 'https://lixlgaxkjtjbtudjownk.supabase.co';
 var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpeGxnYXhranRqYnR1ZGpvd25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MjQyNjIsImV4cCI6MjA5NzEwMDI2Mn0.o9P2VoMky3Khfz84XkPKPbds5adOWmNM_HRUiY8St-4';
-var ADMIN_PASSWORD_HASH = '8cbcda898806b5c4229fbf9c1a9bd166b41f217f3b9755a2f23ac0cd1e8a4c5b';
 var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 var clienteAdminCorrente = null;
 var tuttiClienti = [];
@@ -375,12 +374,17 @@ function richiestaAdmin() {
 }
 async function verificaAdmin() {
   var pwd = document.getElementById('admin-pwd').value;
+  var rl4 = await checkRateLimit('admin_panel');
+  if (rl4.bloccato) { document.getElementById('msg-pwd').textContent = 'Troppi tentativi. Riprova tra ' + rl4.minuti + ' min.'; return; }
   if (await hashPassword(pwd) === window._adminHash) {
+    await resetRateLimit('admin_panel');
     adminAutenticato = true;
+    salvaSessione('admin', { autenticato: true });
     document.getElementById('overlay-admin').classList.add('hidden');
     document.getElementById('admin-pwd').value = '';
     mostraTab('admin');
   } else {
+    await registraLoginFallito('admin_panel');
     document.getElementById('msg-pwd').textContent = 'Password errata';
   }
 }
@@ -409,7 +413,10 @@ async function verificaRisposta() {
   }
 async function verificaPasswordConsole() {
 var pwd = document.getElementById('console-pwd').value;
+var rl5 = await checkRateLimit('admin_panel');
+if (rl5.bloccato) { mostraMsg('msg-console-password','Troppi tentativi. Riprova tra ' + rl5.minuti + ' min.','error'); return; }
 if (await hashPassword(pwd) === window._adminHash) {
+await resetRateLimit('admin_panel');
 adminAutenticato = true;
 salvaSessione('admin', { autenticato: true });
 document.getElementById('page-console').classList.add('hidden');
@@ -420,7 +427,10 @@ document.getElementById('tab-admin').classList.add('active');
 document.getElementById('tab-admin').classList.remove('hidden');
 caricaClienti();
 caricaNotifiche();
-} else { mostraMsg('msg-console-password','Password errata.','error'); }
+} else {
+await registraLoginFallito('admin_panel');
+mostraMsg('msg-console-password','Password errata.','error');
+}
 }
 
 function puntiHTML(punti) {
@@ -473,9 +483,12 @@ function generaPasswordAuto(nome, cognome) {
 var _SESSIONE_CLIENTE_MS = 1 * 60 * 60 * 1000;  // 1 ora
 var _SESSIONE_ADMIN_MS   = 3 * 60 * 60 * 1000;  // 3 ore
 
+function generaToken() { var a = new Uint8Array(24); crypto.getRandomValues(a); return Array.from(a).map(function(b){return b.toString(16).padStart(2,'0');}).join(''); }
 function salvaSessione(tipo, dati) {
   var scadenza = Date.now() + (tipo === 'admin' ? _SESSIONE_ADMIN_MS : _SESSIONE_CLIENTE_MS);
-  localStorage.setItem('sessione_' + tipo, JSON.stringify({ dati: dati, scadenza: scadenza }));
+  var token = generaToken();
+  if (tipo === 'admin') { window._adminSessionToken = token; }
+  localStorage.setItem('sessione_' + tipo, JSON.stringify({ dati: dati, scadenza: scadenza, token: token }));
 }
 function leggiSessione(tipo) {
   var stored = localStorage.getItem('sessione_' + tipo);
@@ -484,6 +497,12 @@ function leggiSessione(tipo) {
   if (Date.now() > s.scadenza) {
     localStorage.removeItem('sessione_' + tipo);
     return null;
+  }
+  if (tipo === 'admin') {
+    if (!s.token || !window._adminSessionToken || s.token !== window._adminSessionToken) {
+      localStorage.removeItem('sessione_admin');
+      return null;
+    }
   }
   return s.dati;
 }
@@ -963,6 +982,8 @@ document.getElementById('admin-risultati-lista').classList.add('hidden');
 // --- ADMIN: ELIMINA CLIENTE -------------------------------
 async function confermaEliminaCliente(clienteId, nomeCliente) {
   if (!confirm('Eliminare la tessera di ' + nomeCliente + '?\nVerranno cancellati anche tutti i movimenti. Questa azione è irreversibile.')) return;
+  var conferma7 = prompt('Seconda conferma richiesta.\nScrivi ELIMINA in maiuscolo per procedere:');
+  if (conferma7 !== 'ELIMINA') { alert('Eliminazione annullata.'); return; }
   var r = await db.from('clienti').delete().eq('id', clienteId);
   if (r.error) { alert('Errore: ' + r.error.message); return; }
   caricaClienti();
@@ -1120,7 +1141,7 @@ async function caricaImpostazioni() {
     if (!risposta) { mostraMsg('msg-impostazioni','Inserisci la nuova risposta.','error'); return; }
     if (pwdNew && pwdNew !== pwdConfirm) { mostraMsg('msg-impostazioni','Le password non coincidono.','error'); return; }
     var rispostaHash = await hashPassword(risposta);
-    var updates = { domanda_accesso: domanda, risposta_accesso: risposta, risposta_hash: rispostaHash, updated_at: new Date().toISOString() };
+    var updates = { domanda_accesso: domanda, risposta_hash: rispostaHash, updated_at: new Date().toISOString() };
     if (pwdNew) { updates.admin_hash = await hashPassword(pwdNew); }
     var r = await db.from('impostazioni').update(updates).eq('id',1);
     if (r.error) { mostraMsg('msg-impostazioni','Errore: ' + r.error.message,'error'); return; }
