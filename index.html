@@ -759,7 +759,11 @@ renderStorico(false);
 // --- RICHIEDI PREMIO (lato cliente) ------------------------
 async function richiediPremio() {
 if (!clienteLoggato) return;
-var punti = clienteLoggato.punti;
+var freshR = await db.from('clienti').select('punti,premi_riscattati').eq('id', clienteLoggato.id).single();
+if (freshR.error || !freshR.data) { alert('Errore verifica punti. Riprova.'); return; }
+var punti = freshR.data.punti;
+clienteLoggato.punti = punti;
+clienteLoggato.premi_riscattati = freshR.data.premi_riscattati || 0;
 var sceltaEl = document.getElementById('scelta-premio');
 var puntiPremio = punti >= 10 && sceltaEl ? parseInt(sceltaEl.value) : 5;
 if (punti < 5) { return; }
