@@ -396,8 +396,8 @@ async function verificaRisposta() {
       mostraMsg('msg-console-domanda', 'Risposta errata.', 'error');
       return;
     }
-    document.getElementById('console-step-domanda').style.display = 'none';
-    document.getElementById('console-step-password').style.display = 'block';
+    document.getElementById('console-step-domanda').classList.add('hidden');
+    document.getElementById('console-step-password').classList.remove('hidden');
   }
 async function verificaPasswordConsole() {
 var pwd = document.getElementById('console-pwd').value;
