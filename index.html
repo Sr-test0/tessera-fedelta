@@ -1207,16 +1207,10 @@ if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { mostraMsg('msg-registrazione','
 var nomeCompleto = nome + ' ' + cognome;
 var pwdPlain = generaPasswordAuto(nomeCompleto);
 var pwdHash = await hashPassword(pwdPlain);
-var check = await db.from('clienti').select('id').eq('email', email).maybeSingle();
-if (check.data) {
-document.getElementById('msg-registrazione').innerHTML =
-'<div class="alert alert-error">Questa email è già registrata con una tessera SR Art.<br><br>' +
-'<button onclick="tornaAlLogin();mostraFormResetPassword();" style="width:100%;margin-top:4px">🔑 Recupera la tua password</button></div>';
-return;
-}
-var r = await db.from('clienti').insert({ nome: nomeCompleto, email: email, password: pwdHash, password_temp: true, origine: 'autonoma' }).select().single();
-if (r.error) { mostraMsg('msg-registrazione', r.error.code === '23505' ? 'Email già registrata!' : 'Errore: ' + r.error.message, 'error'); return; }
-var nuovoCliente = r.data;
+
+var rpc = await db.rpc('registra_cliente_autonomo', { p_nome: nomeCompleto, p_email: email, p_pwd_hash: pwdHash });
+if (rpc.error || !rpc.data?.success) { mostraMsgError('msg-registrazione', rpc.data?.error || 'Errore registrazione', 'error'); return; }
+var nuovoCliente = { id: rpc.data.id, nome: nomeCompleto, email: email };;
 await db.from('movimenti').insert({ cliente_id: nuovoCliente.id, tipo: 'benvenuto', punti: 1, nota: 'Punto di benvenuto' });
 await pulisciMovimentiVecchi(nuovoCliente.id);
 await db.from('clienti').update({ punti: 1, punti_totali: 1 }).eq('id', nuovoCliente.id);
@@ -1299,7 +1293,7 @@ var errReset = validatePassword(p1);
 if (errReset) { mostraMsg('msg-reset-password', errReset, 'error'); return; }
 if (p1 !== p2) { mostraMsg('msg-reset-password','Le password non coincidono.','error'); return; }
 var pwdHash = await hashPassword(p1);
-var r = await db.from('clienti').update({ password: pwdHash, password_temp: false }).eq('id', _resetClienteVerificato.id);
+var r = await db.rpc('reset_password_cliente', { p_id: _resetClienteVerificato.id, p_new_pwd_hash: pwdHash });
 if (r.error) { mostraMsg('msg-reset-password','Errore: ' + r.error.message,'error'); return; }
 _resetClienteVerificato = null;
 document.getElementById('cliente-reset-pwd').classList.add('hidden');
@@ -1310,12 +1304,12 @@ return;
 var email = document.getElementById('reset-email').value.trim();
 var tesseraId = document.getElementById('reset-tessera-id').value.trim().toUpperCase();
 if (!email || !tesseraId) { mostraMsg('msg-reset-password','Inserisci email e codice tessera.','error'); return; }
-var r = await db.from('clienti').select('*').eq('email', email).eq('tessera_id', tesseraId).maybeSingle();
-if (r.error || !r.data) {
-mostraMsg('msg-reset-password','Nessun account trovato con questi dati. Controlla email e codice tessera.','error');
+var rpc = await db.rpc('verifica_reset_password', { p_email: email, p_tessera_id: tesseraId });
+if (rpc.error || !rpc.data?.found) {
+mostraMsgError('msg-reset-password','Nessun account trovato con questi dati. Controlla email e codice tessera.','error');
 return;
 }
-_resetClienteVerificato = r.data;
+_resetClienteVerificato = rpc.data;
 document.getElementById('reset-nuova-pwd-box').classList.remove('hidden');
 document.getElementById('reset-email').disabled = true;
 document.getElementById('reset-tessera-id').disabled = true;
