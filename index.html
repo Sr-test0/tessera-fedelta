@@ -379,6 +379,7 @@ async function verificaAdmin() {
   if (await hashPassword(pwd) === window._adminHash) {
     await resetRateLimit('admin_panel');
     adminAutenticato = true;
+    delete window._adminHash;
     salvaSessione('admin', { autenticato: true });
     document.getElementById('overlay-admin').classList.add('hidden');
     document.getElementById('admin-pwd').value = '';
@@ -422,6 +423,7 @@ if (rl5.bloccato) { mostraMsg('msg-console-password','Troppi tentativi. Riprova 
 if (await hashPassword(pwd) === window._adminHash) {
 await resetRateLimit('admin_panel');
 adminAutenticato = true;
+delete window._adminHash;
 salvaSessione('admin', { autenticato: true });
 document.getElementById('page-console').classList.add('hidden');
 document.getElementById('page-cliente').classList.remove('hidden');
