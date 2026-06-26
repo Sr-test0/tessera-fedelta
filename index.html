@@ -855,6 +855,7 @@ document.getElementById('nota-acquisto').value = '';
 }
 
 async function aggiungiPunti() {
+if (!adminAutenticato) return;
 if (!clienteAdminCorrente) return;
 var importo = parseFloat(document.getElementById('importo-euro').value);
 if (!importo || importo <= 0) { mostraMsg('msg-admin-punti', 'Inserisci importo valido.', 'error'); return; }
@@ -885,6 +886,7 @@ var aggiornato = await db.from('clienti').select('*').eq('id', clienteAdminCorre
 if (!aggiornato.error) selezionaClienteAdmin(aggiornato.data);
 }
 async function aggiungiPuntiManuali() {
+  if (!adminAutenticato) return;
   if (!clienteAdminCorrente) return;
   var n = prompt('Quanti punti aggiungere manualmente?');
   if (!n || isNaN(parseInt(n))) return;
@@ -902,6 +904,7 @@ async function aggiungiPuntiManuali() {
 
 // --- ADMIN: CREA CLIENTE ----------------------------------
 async function creaCliente() {
+if (!adminAutenticato) return;
 var nome = document.getElementById('nuovo-nome').value.trim();
 var email = document.getElementById('nuovo-email').value.trim();
 var tel = document.getElementById('nuovo-tel').value.trim() || null;
@@ -942,6 +945,7 @@ caricaClienti();
 var _clientiOffset = 0;
 var _clientiPageSize = 50;
 async function caricaClienti(reset) {
+  if (!adminAutenticato) return;
   if (reset !== false) { _clientiOffset = 0; tuttiClienti = []; }
   var r = await db.from("clienti").select("*").order("created_at", { ascending: false }).range(_clientiOffset, _clientiOffset + _clientiPageSize - 1);
   if (r.error) return;
@@ -985,6 +989,7 @@ document.getElementById('admin-risultati-lista').classList.add('hidden');
 
 // --- ADMIN: ELIMINA CLIENTE -------------------------------
 async function confermaEliminaCliente(clienteId, nomeCliente) {
+  if (!adminAutenticato) return;
   if (!confirm('Eliminare la tessera di ' + nomeCliente + '?\nVerranno cancellati anche tutti i movimenti. Questa azione è irreversibile.')) return;
   var conferma7 = prompt('Seconda conferma richiesta.\nScrivi ELIMINA in maiuscolo per procedere:');
   if (conferma7 !== 'ELIMINA') { alert('Eliminazione annullata.'); return; }
@@ -1020,6 +1025,7 @@ async function avviaExport() {
   if (tuttiClienti.length === 0) await caricaClienti();
 }
 async function esportaXLSX() {
+  if (!adminAutenticato) return;
   mostraMsg('msg-export','Preparazione export in corso...','info');
   var rc = await db.from('clienti').select('*').order('created_at', {ascending: false});
   if (rc.error) { mostraMsg('msg-export','Errore: ' + rc.error.message,'error'); return; }
@@ -1137,6 +1143,7 @@ async function caricaImpostazioni() {
   }
 }
   async function salvaImpostazioni() {
+    if (!adminAutenticato) return;
     var domanda = document.getElementById('imp-domanda').value.trim();
     var risposta = document.getElementById('imp-risposta').value.trim();
     var pwdNew = document.getElementById('imp-pwd-new').value;
