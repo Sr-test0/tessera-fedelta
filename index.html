@@ -389,15 +389,15 @@ async function inizializzaConsole() {
   }
 }
 async function verificaRisposta() {
-    const input = document.getElementById('risposta-input').value.trim();
-    if (!input) { mostraMsg('risposta-msg', 'Inserisci la risposta.', 'error'); return; }
+    const input = document.getElementById('console-risposta').value.trim();
+    if (!input) { mostraMsg('msg-console-domanda', 'Inserisci la risposta.', 'error'); return; }
     const inputHash = await hashPassword(input);
     if (inputHash !== window._rispostaCorretta) {
-      mostraMsg('risposta-msg', 'Risposta errata.', 'error');
+      mostraMsg('msg-console-domanda', 'Risposta errata.', 'error');
       return;
     }
-    document.getElementById('step-risposta').style.display = 'none';
-    document.getElementById('step-password').style.display = 'block';
+    document.getElementById('console-step-domanda').style.display = 'none';
+    document.getElementById('console-step-password').style.display = 'block';
   }
 async function verificaPasswordConsole() {
 var pwd = document.getElementById('console-pwd').value;
