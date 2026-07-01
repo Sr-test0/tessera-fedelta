@@ -582,8 +582,8 @@ async function loginCliente() {
     mostraMsg('msg-login', 'Troppi tentativi falliti. Riprova tra ' + rl.minuti + ' minuto/i.', 'error');
     return;
   }
-  var pwdHash = await hashPassword(pwd);
-  var rpc = await db.rpc('login_cliente_sicuro', { p_email: email, p_pwd_hash: pwdHash });
+  
+  var rpc = await db.rpc('login_cliente_sicuro', { p_email: email, p_password: pwd });
   if (rpc.error || !rpc.data || !rpc.data.ok) {
     var errore = (rpc.data && rpc.data.error) ? rpc.data.error : 'network';
     if (errore === 'not_found') {
@@ -653,8 +653,8 @@ var p2 = document.getElementById("pwd-f-2").value;
 var errPwd = validatePassword(p1);
 if (errPwd) { mostraMsg("msg-f", errPwd, "error"); return; }
 if (p1 !== p2) { mostraMsg("msg-f", "Le password non coincidono.", "error"); return; }
-var pwdHash = await hashPassword(p1);
-var r = await db.rpc('cambia_password_forzata', { p_id: clienteLoggato.id, p_nuova_hash: pwdHash });
+
+var r = await db.rpc('cambia_password_forzata', { p_id: clienteLoggato.id, p_nuova_password: p1 });
 if (r.error || !r.data?.ok) { mostraMsg('msg-f', 'Errore: ' + (r.data?.error || r.error?.message || 'sconosciuto'), 'error'); return; }
 clienteLoggato.password = pwdHash;
 clienteLoggato.password_temp = false;
@@ -669,7 +669,7 @@ async function cambiaPassword() {
   var p1 = document.getElementById('nuova-pwd-1').value;
   var p2 = document.getElementById('nuova-pwd-2').value;
   if (!vecchiaPwd) { mostraMsg('msg-cambia-pwd', 'Inserisci la password attuale.', 'error'); return; }
-  var vecchiaHash = await hashPassword(vecchiaPwd);
+  
   if (vecchiaHash !== clienteLoggato.password) {
     mostraMsg('msg-cambia-pwd', 'La password attuale non e\' corretta.', 'error');
     return;
@@ -677,8 +677,8 @@ async function cambiaPassword() {
   var errPwd = validatePassword(p1);
   if (errPwd) { mostraMsg('msg-cambia-pwd', errPwd, 'error'); return; }
   if (p1 !== p2) { mostraMsg('msg-cambia-pwd', 'Le password non coincidono.', 'error'); return; }
-  var pwdHash = await hashPassword(p1);
-    var r = await db.rpc('cambia_password_cliente', { p_id: clienteLoggato.id, p_vecchia_hash: vecchiaHash, p_nuova_hash: pwdHash });
+  
+    var r = await db.rpc('cambia_password_cliente', { p_id: clienteLoggato.id, p_vecchia_password: vecchiaPwd, p_nuova_password: p1 });
   if (r.error || !r.data?.ok) { mostraMsg('msg-cambia-pwd', 'Errore: ' + (r.data?.error || r.error?.message || 'sconosciuto'), 'error'); return; }
   clienteLoggato.password = pwdHash;
   clienteLoggato.password_temp = false;
@@ -929,8 +929,8 @@ var pwdInput = document.getElementById('nuovo-pwd').value.trim();
 var note = document.getElementById('nuovo-note').value.trim() || null;
 if (!nome || !email) { mostraMsg('msg-nuovo-cliente', 'Nome ed email obbligatori.', 'error'); return; }
 var pwdPlain = pwdInput || generaPasswordAuto(nome);
-var pwdHash = await hashPassword(pwdPlain);
-var r = await db.from('clienti').insert({ nome: nome, email: email, telefono: tel, note: note, password: pwdHash, password_temp: true }).select().single();
+
+var r = await db.from('clienti').insert({ nome: nome, email: email, telefono: tel, note: note, password: pwdInput, password_temp: true }).select().single();
 if (r.error) { mostraMsg('msg-nuovo-cliente', r.error.code === '23505' ? 'Email già registrata!' : 'Errore: ' + r.error.message, 'error'); return; }
 mostraMsg('msg-nuovo-cliente',
 'Tessera creata! ID: <strong>' + r.data.tessera_id + '</strong><br>' +
@@ -952,8 +952,8 @@ async function confermaResetPassword() {
 var nuovaPwd = document.getElementById('reset-pwd-input').value.trim();
 var errAdminReset = validatePassword(nuovaPwd);
 if (errAdminReset) { mostraMsg('msg-reset-pwd', errAdminReset, 'error'); return; }
-var pwdHash = await hashPassword(nuovaPwd);
-var r = await db.from('clienti').update({ password: pwdHash, password_temp: true }).eq('id', resetPwdClienteId);
+
+var r = await db.from('clienti').update({ password: nuovaPwd, password_temp: true }).eq('id', resetPwdClienteId);
 if (r.error) { mostraMsg('msg-reset-pwd', 'Errore: ' + r.error.message, 'error'); return; }
 document.getElementById('modal-reset-pwd').classList.add('hidden');
 caricaClienti();
@@ -1206,9 +1206,9 @@ if (!nome || !cognome || !email) { mostraMsg('msg-registrazione','Nome, cognome 
 if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { mostraMsg('msg-registrazione','Inserisci un indirizzo email valido.','error'); return; }
 var nomeCompleto = nome + ' ' + cognome;
 var pwdPlain = generaPasswordAuto(nomeCompleto);
-var pwdHash = await hashPassword(pwdPlain);
 
-var rpc = await db.rpc('registra_cliente_autonomo', { p_nome: nomeCompleto, p_email: email, p_pwd_hash: pwdHash });
+
+var rpc = await db.rpc('registra_cliente_autonomo', { p_nome: nomeCompleto, p_email: email, p_password: pwdPlain });
 if (rpc.error || !rpc.data?.success) { mostraMsgError('msg-registrazione', rpc.data?.error || 'Errore registrazione', 'error'); return; }
 var nuovoCliente = { id: rpc.data.id, nome: nomeCompleto, email: email };;
 await db.from('movimenti').insert({ cliente_id: nuovoCliente.id, tipo: 'benvenuto', punti: 1, nota: 'Punto di benvenuto' });
@@ -1292,8 +1292,8 @@ var p2 = document.getElementById('reset-nuova-pwd2').value;
 var errReset = validatePassword(p1);
 if (errReset) { mostraMsg('msg-reset-password', errReset, 'error'); return; }
 if (p1 !== p2) { mostraMsg('msg-reset-password','Le password non coincidono.','error'); return; }
-var pwdHash = await hashPassword(p1);
-var r = await db.rpc('reset_password_cliente', { p_id: _resetClienteVerificato.id, p_new_pwd_hash: pwdHash });
+
+var r = await db.rpc('reset_password_cliente', { p_id: _resetClienteVerificato.id, p_new_password: p1 });
 if (r.error) { mostraMsg('msg-reset-password','Errore: ' + r.error.message,'error'); return; }
 _resetClienteVerificato = null;
 document.getElementById('cliente-reset-pwd').classList.add('hidden');
