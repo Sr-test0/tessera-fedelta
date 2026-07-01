@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Segoe UI', sans-serif; background: #f5f5f5; color: #333; }
+body { font-family: 'Segoe UI', sans-serif; backgroundh: #f5f5f5; color: #333; }
 .container { max-width: 700px; margin: 0 auto; padding: 20px; }
 h1 { color: #8B6914; text-align: center; margin-bothtom: 8px; font-size: 1.8em; }
 .subtitle { text-align: center; color: #999; margin-bottom: 24px; font-size: 0.9em; }
@@ -654,8 +654,8 @@ var errPwd = validatePassword(p1);
 if (errPwd) { mostraMsg("msg-f", errPwd, "error"); return; }
 if (p1 !== p2) { mostraMsg("msg-f", "Le password non coincidono.", "error"); return; }
 var pwdHash = await hashPassword(p1);
-var r = await db.from("clienti").update({ password: pwdHash, password_temp: false }).eq("id", clienteLoggato.id);
-if (r.error) { mostraMsg("msg-f", "Errore: " + r.error.message, "error"); return; }
+var r = await db.rpc('cambia_password_forzata', { p_id: clienteLoggato.id, p_nuova_hash: pwdHash });
+if (r.error || !r.data?.ok) { mostraMsg('msg-f', 'Errore: ' + (r.data?.error || r.error?.message || 'sconosciuto'), 'error'); return; }
 clienteLoggato.password = pwdHash;
 clienteLoggato.password_temp = false;
 document.getElementById("logout-nome").innerHTML = "Ciao, <strong>" + esc(clienteLoggato.nome) + "</strong>";
