@@ -678,8 +678,8 @@ async function cambiaPassword() {
   if (errPwd) { mostraMsg('msg-cambia-pwd', errPwd, 'error'); return; }
   if (p1 !== p2) { mostraMsg('msg-cambia-pwd', 'Le password non coincidono.', 'error'); return; }
   var pwdHash = await hashPassword(p1);
-  var r = await db.from('clienti').update({ password: pwdHash, password_temp: false }).eq('id', clienteLoggato.id);
-  if (r.error) { mostraMsg('msg-cambia-pwd', 'Errore: ' + r.error.message, 'error'); return; }
+    var r = await db.rpc('cambia_password_cliente', { p_id: clienteLoggato.id, p_vecchia_hash: vecchiaHash, p_nuova_hash: pwdHash });
+  if (r.error || !r.data?.ok) { mostraMsg('msg-cambia-pwd', 'Errore: ' + (r.data?.error || r.error?.message || 'sconosciuto'), 'error'); return; }
   clienteLoggato.password = pwdHash;
   clienteLoggato.password_temp = false;
   document.getElementById('logout-nome').innerHTML = 'Ciao, <strong>' + esc(clienteLoggato.nome) + '</strong>';
