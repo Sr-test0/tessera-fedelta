@@ -53,7 +53,7 @@
 
         1. Vai su **https://tessera-fedelta.vercel.app**
         2. Clicca su **"Pannello Admin"** in alto a destra
-        3. Si apre una finestra di accesso → inserisci la password: **srart2024**
+        3. Si apre una finestra di accesso → inserisci la password admin
         4. Clicca **Entra**
 
         > La sessione admin rimane attiva finché non chiudi il browser.
