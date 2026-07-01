@@ -9,7 +9,7 @@
 | Chi sei | Cosa fai |
 |---|---|
 | Cliente | Vai su https://tessera-fedelta.vercel.app → scheda "La mia tessera" → inserisci la tua email |
-| Admin | Vai su https://tessera-fedelta.vercel.app → clicca "Pannello Admin" → password: **srart2024** |
+| Admin | Vai su https://tessera-fedelta.vercel.app → clicca "Pannello Admin" → inserisci la password |
 
 ---
 
@@ -132,7 +132,7 @@
                     | Cosa | Valore |
                     |---|---|
                     | URL app cliente | https://tessera-fedelta.vercel.app |
-                    | Password admin | srart2024 |
+                    | Password admin | [vedi pannello impostazioni] |
                     | Repository GitHub | https://github.com/Sr-test0/tessera-fedelta |
                     | Database (Supabase) | https://lixlgaxkjtjbtudjownk.supabase.co |
 
